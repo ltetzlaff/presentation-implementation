@@ -17,7 +17,7 @@ There is another topic on testing, so ..?
 ### Controller
 
 HTML+JS
-*<any webcontent>* + cast button which initiates discovery of devices
+`any webcontent` + cast button which initiates discovery of devices
 
 ### Receiver
 
@@ -42,23 +42,23 @@ Mutual for all of those:
 
 ### Backend Options
 
-#### Node.JS as mitm-like service on <serverUrl>
+#### Node.JS as mitm-like service on $serverUrl$
 
-- receiver registering on server as idle by sending `xhr(<serverUrl>/host&room=123)` at some point in time
-- controller: `xhr(<serverUrl>/join&room=123)`
+- receiver registering on server as idle by sending `xhr($serverUrl$/host&room=123)` at some point in time
+- controller: `xhr($serverUrl$/join&room=123)`
 - server returns reference to selected room thus establishing handshake
 - Data Transmission?
   - socket.io, maybe WebSockets/WebRTC _(actually not)_
 
-#### P2P <serverUrl> is <receiverUrl>
+#### P2P $serverUrl$ is $receiverUrl$
 
 - receiver listening
-- controller gets <serverUrl> by local discovery
+- controller gets $serverUrl$ by local discovery
 
 
 ### Discovery
 
-has to be encapsulated from *<any webcontent>* because they shall not be allowed to know about the device options the controller has,
+has to be encapsulated from `any webcontent` because they shall not be allowed to know about the device options the controller has,
 thus: evaluate encapsulation method to occult list of cast devices from api users
 
 #### keep it in the browser context
@@ -78,10 +78,10 @@ thus: evaluate encapsulation method to occult list of cast devices from api user
   - make non enumerable properties https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty
   - random indices in objects *example*
   - _yeah .._
-- es6 symbols + custom wrapper class in between (like famiums multiscreen.js)
+- es6 symbols + custom wrapper class in between (== famiums `multiscreen.js`)
   - es6 has true private members (symbols)
-  - add some custom class e.g. DeviceChooser which does the availability checking, keeps it private and returns some anonymized reference to the chosen device
-  - ensuring that this is done correctly could be done similarly to file api classes (only allow calls to something being instanceof DeviceChooser)
+  - add some custom class e.g. `DeviceChooser` which does the availability checking, keeps it private and returns some anonymized reference to the chosen device
+  - ensuring that this is done correctly could be done similarly to file api classes (only allow calls to something being instanceof `DeviceChooser`)
   - user (dev) should be able to call one function in the end
 
 #### move to another context
