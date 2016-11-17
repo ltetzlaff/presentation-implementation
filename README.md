@@ -62,18 +62,22 @@ has to be encapsulated from *<any webcontent>* because they shall not be allowed
 thus: evaluate encapsulation method to occult list of cast devices from api users
 
 #### keep it in the browser context
-- use some browser magic
-  - stuff that works for file api etc
-  - filechooser doesnt return absolute urls <example>
-  - _but what if we need it now and not in the next 20 versions of Chrome someday?_
-- use light js magic
-  - closures
-    - <example>
-    - _your stuff might get overridden so meh_
-  - obfuscation
-    - make non enumerable properties https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty
-    - random indices in objects <example>
-    - _yeah .._
+
+##### use some browser magic
+
+- stuff that works for file api etc
+- filechooser doesnt return absolute urls *example*
+- _but what if we need it now and not in the next 20 versions of Chrome someday?_
+
+##### use light js magic
+
+- closures
+  - *example*
+  - _your stuff might get overridden so meh_
+- obfuscation
+  - make non enumerable properties https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty
+  - random indices in objects *example*
+  - _yeah .._
 - es6 symbols + custom wrapper class in between (like famiums multiscreen.js)
   - es6 has true private members (symbols)
   - add some custom class e.g. DeviceChooser which does the availability checking, keeps it private and returns some anonymized reference to the chosen device
