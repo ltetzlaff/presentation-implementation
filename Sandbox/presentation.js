@@ -6,12 +6,14 @@
 class DeviceDiscoverer {
   // #TODO some class that handles the monitoring
   constructor() {
+    this.monitoring = false;
     this.monitorHandler = () => {};
     /**
      * Technically possible because there was a monitorHandler attached
      */
     this.possible = false;
     
+    this.implementationReference = null; // .close(reason) must be there
     
     /**
      * Allowed by user
@@ -43,6 +45,7 @@ class DeviceDiscoverer {
    * @return {Promise}
    */
   monitor() {
+    this.monitoring = true;
     return new Promise((resolve, reject) => {
       this.availablePresentationDisplays = [];              // 1.
       
@@ -67,6 +70,8 @@ class DeviceDiscoverer {
           }
         });
         
+        // near-end
+        this.monitoring = false;
         if (tuple instanceof Array) {
           // assume its [presentationUrl]
           let value = tuple.length > 0; // 6.4.3  7.2 -> #TODO is this correct? i dont get this paragraph ..
@@ -80,14 +85,87 @@ class DeviceDiscoverer {
       });
     });
   }
+    
   
+  urlsTest(urls) {
+    return this.availablePresentationDisplays.some(apd => urls.contains(apd.availabilityUrl))
+  }
   
-  /*
-  #TODO
-  When a PresentationAvailability object is no longer alive (i.e., is eligible for garbage collection), the user agent should run the following steps:
-    - Find and remove any entry (A, availabilityUrl) in the set of availability objects for the newly deceased A.
-    - If the set of availability objects is now empty and there is no pending request to select a presentation display, cancel any pending task to monitor the list of available presentation displays for power saving purposes, and set the list of available presentation displays to the empty list.
-  */
+  /**
+   * 6.3.2. 8-10. https://w3c.github.io/presentation-api/#selecting-a-presentation-display
+   * @param {Array} presentationUrls
+   * @return {Promise}
+   */
+  letUserSelectDisplay(presentationUrls) {
+    return this.getUserPermission()
+    .then(v => {
+       return this.getUserSelectedDisplay(presentationUrls);
+    }).catch(() => {
+      // 10.
+      return new NotAllowedError();
+    });
+  }
+  
+  /**
+   * If starting display connection is allowed
+   * @return {Promise}
+   */
+  getUserPermission() {
+    return new Promise((resolve, reject) => {
+      if (this.allowed) {
+        resolve(this.allowed);
+      } else {
+        reject();
+      }
+    });
+  }
+  
+  /**
+   * 6.3.2 9.
+   * Let user select display and return it
+   * @param {Array} presentationUrls
+   * @return {Promise}
+   */
+  getUserSelectedDisplay(presentationUrls) {
+    // #TODO own implementation
+    return new Promise((resolve, reject) => {
+      let empty = this.availablePresentationDisplays.length === 0; // #TODO add check if currently monitoring etc => "stays empty"
+      let couldConnectToAnUrl = this.urlsTest(presentationUrls);
+      if (empty || !couldConnectToAnUrl) {
+        reject(new NotFoundError());
+      } else {
+        // Ask user which display shall be taken
+        let D = null; // #TODO
+        /*
+        The details of implementing the permission request and display selection are left to the user agent; for example it may show the user a dialog and allow the user to select an available display (granting permission), or cancel the selection (denying permission). Implementers are encouraged to show the user whether an available display is currently in use, to facilitate presentations that can make use of multiple displays.
+        */
+        resolve(D);
+      }
+    });
+  }
+  
+  /**
+   * 6.3.4 https://w3c.github.io/presentation-api/#dfn-start-a-presentation-connection
+   * @param {PresentationRequest} presentationRequest
+   * @param {PresentationDisplay} D
+   * @param {Promise} P - gets resolved with new PresentationConnection
+   */
+  startPresentationConnection(presentationRequest, D, P) {
+    
+  }
+  
+  /**
+   * #TODO i dont get how to implement this as js uses reference-count garbage collection which cant be overridden or hooked into
+   * @param {PresentationAvailability} A
+   */
+  gc(A) {
+    this.availabilityObjects = this.availabilityObjects.filter(aO => aO === A);
+    if (this.availabilityObjects.length === 0) {
+      // #TODO cancel any pending task to monitor the list of available presentation displays for power saving purposes, and set the list of available presentation displays to the empty list.
+      // somehow resolve the monitor() promise
+      this.availablePresentationDisplays = [];
+    }
+  }
   
   /**
    * That's how the DeviceDiscovery shall work
@@ -131,7 +209,6 @@ function readOnly(to, propName, propValue) {
  * @return {boolean}
  */
 function prohibitsMixedSecurityContents() {
-  // #TODO
   // window.isSecureContext ?
   return true;
 }
@@ -156,14 +233,19 @@ function isAPrioriUnauthenticatedURL(url) {
  * #TODO
  * https://www.w3.org/TR/html5/browsers.html#sandboxing-flag-set
  * https://w3c.github.io/presentation-api/#sandboxed-presentation-browsing-context-flag
+ * @param {document} doc
  */
-function getSandboxingFlag() {
-  // i have no idea
+function getSandboxingFlag(doc) {
+  // i have no idea yet
   return false;
 }
 
-function isSandboxedPresentation() {
-  return getSandboxingFlag();
+/**
+ * @param {document} doc - optional
+ */
+function isSandboxedPresentation(doc) {
+  doc = doc || document;
+  return getSandboxingFlag(doc);
 }
 
 
@@ -224,31 +306,61 @@ class PresentationRequest {
     });
     
     this.onconnectionavailable = null;
+    this.presentationAvailabilityPromise = null;
+    this.presentationDisplayAvailability = null;
   }
   
   /**
    * 6.3.2 https://w3c.github.io/presentation-api/#dom-presentationrequest-start
    * @param {PresentationRequest} this
+   * @param {DeviceDiscoverer} dd
    * @return {Promise<PresentationConnection>}
    */
-  start() {
+  start(dd) {
     return new Promise((resolve, reject) => {
       if (!allowedToShowPopup()) {
         return reject(new InvalidAccessError()); // 1.
       }
-      if (isMixedContentMismatch(this.presentationUrls) || isSandboxedPresentation()) { // 2. - 5.
+      if (isMixedContentMismatch(this.presentationUrls) || isSandboxedPresentation()) { // 2. - 4.
         return reject(new SecurityError());
       }
       
-      // #TODO 6.
-      // this.presentationUrls
-      // #TODO 7-14 https://w3c.github.io/presentation-api/#dom-presentationrequest-start
-      return resolve();
+      // 5.
+      let P = new Promise((resolve, reject) => {
+        // 7.
+        if (!dd.monitoring) {
+          dd.monitor();
+        }
+        
+        // 8.
+        dd.letUserSelectDisplay(this.presentationUrls)
+        .then(D => {
+          // 11. - 12.
+          dd.startPresentationConnection(this, D, P);
+          // #TODO does giving P work here? otherwise we would have to use function(resolve, reject) and return something like (self, D, this)
+        });
+      });
+      return P; // 6.
     });
+  }
+  
+  /**
+   * 6.3.3 https://w3c.github.io/presentation-api/#starting-a-presentation-from-a-default-presentation-request
+   * @param {document} W
+   * @param {PresentationRequest} presentationRequest
+   * @param {PresentationDisplay} D
+   */
+  static startDefault(W, presentationRequest, D) {
+    let presentationUrls = presentationRequest.presentationUrls; // 1.
+    if (isSandboxedPresentation(W)) {
+      return;
+    }
+    
   }
   
   
   /**
+   * 6.3.5
    * https://w3c.github.io/presentation-api/#dom-presentationrequest-reconnect
    * @param {}
    * @return {Promise<PresentationConnection>}
@@ -293,9 +405,7 @@ class PresentationRequest {
         });
           
         // 7.
-        let value = dd.availablePresentationDisplays.some(apd => {
-          return presentationUrls.includes(apd.presentationUrl);
-        });
+        let value = dd.urlsTest(presentationUrls);
         let A = new PresentationAvailability(value);
         
         // 8.
@@ -325,8 +435,8 @@ class PresentationConnectionAvailableEvent extends Event {
   }
 }
 
-const PresentationConnectionState = ["connecting", "connected", "closed", "terminated"];
-const BinaryType = ["blob", "arraybuffer"];
+const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
+const BinaryType = {blob: 10, arrayBuffer: 11};
 /**
  * 6.5
  * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
@@ -335,10 +445,12 @@ const BinaryType = ["blob", "arraybuffer"];
  * @param {PresentationConnectionState} state
  */
 class PresentationConnection extends EventTarget {
-  constructor() {
+  constructor(id, url) {
+    // {presentation identifier}
     readOnly(this, "id", id);
     readOnly(this, "url", url);
-    readOnly(this, "state", PresentationConnectionState[0]);
+    readOnly(this, "state", PresentationConnectionState.connecting);
+    this.implementationReference = null; // custom
     
     this.onconnect = null;
     this.onclose = null;
@@ -346,11 +458,52 @@ class PresentationConnection extends EventTarget {
     
     // Communication
     this.onmessage = null;
-    this.binaryType = BinaryType[1];
+    this.binaryType = BinaryType.arrayBuffer;
   }
   
-  close() {
-    //#TODO
+  /**
+   * 6.5.1
+   * connect
+   * @param {PresentationConnection} this
+   */
+  establish(dd) {
+    // 1.
+    if (this.state !== PresentationConnectionState.connecting) {
+      return;
+    }
+    
+    // 2.
+    // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
+    dd.connect(this.id)
+      .then((reference) => {
+        // 3.
+        this.implementationReference = reference; // custom
+        this.state = PresentationConnectionState.connected;
+        this.dispatchEvent(new Event("change"));
+      })
+      .catch(() => {
+        // 4.
+        this.close(PresentationConnectionClosedReasons.error);
+      });
+  }
+  
+  /**
+   * 6.5.5
+   * @param {PresentationConnection} this
+   * @param {PresentationConnectionClosedReasons} closeReason
+   * @param {string} closeMessage
+   */
+  close(closeReason, closeMessage) {
+    if (!(this.state == PresentationConnectionState.connecting || this.state == PresentationConnectionState.connected)) {
+      return; // 1.
+    }
+    this.state = PresentationConnectionState.closed;// 2.
+    this.implementationReference.close(closeReason); // 3.
+    if (!(closeReason == PresentationClosedReasons.wentaway)) {
+      
+    }
+    
+    //this.dispatchEvent(new Event("close"));
   }
   
   terminate() {
@@ -386,7 +539,7 @@ class PresentationConnection extends EventTarget {
 /**
  *
  */
-const PresentationConnectionClosedReasons = ["error", "closed", "wentaway"];
+const PresentationConnectionClosedReasons = {error: 0, closed: 1, wentaway: 2};
 class PresentationConnectionCloseEventInit {
   /**
    * @param {String} reason
