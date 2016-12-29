@@ -1,10 +1,18 @@
+function copy(dest, source, isDeep) {
+  if (isDeep) {
+    throw new NotImplementedException();
+  } else {
+    // http://www.2ality.com/2014/01/object-assign.html
+    dest = Object.assign({}, source);
+  }
+}
+
 /**
  * Custom class that opens the API to the user (dev)
  * 6.4.4 Monitor list of available presentation displays
  * https://w3c.github.io/presentation-api/#dfn-monitor-the-list-of-available-presentation-displays
  */
 class DeviceDiscoverer {
-  // #TODO some class that handles the monitoring
   constructor() {
     this.monitoring = false;
     this.monitorHandler = () => {};
@@ -42,53 +50,57 @@ class DeviceDiscoverer {
   
   /**
    * 6.4.4 Monitoring the list of available presentation Displays
+   * theres been a major Rework in https://github.com/w3c/presentation-api/commit/0c800c5c5bee2573735e4b75b117bca77937a0d9
+   * @param {PresentationRequest} pr - #TODO where to get that from
    * @return {Promise}
    */
-  monitor() {
+  monitor(pr) {
     this.monitoring = true;
-    return new Promise((resolve, reject) => {
-      this.availablePresentationDisplays = [];              // 1.
-      
-      return this.monitorHandler().then((newDisplays) => {  // 2.
-        this.availabilityObjects.forEach(aO => {            // 3.
-          let previousAvailabilty = aO.A.value;               // 3.1.
-          let newAvailability = false;                        // 3.2.
-          aO.urls.forEach(availabilityUrl => {    // 3.3.
-            newDisplays.forEach(display => {                    // 3.3.1.
+    let availabilitySet = {};
+    copy(availabilitySet, this.availabilityObjects, false);// 1.
+    
+    if (this.pendingSelection && pr.presentationDisplayAvailability === null) { // 2.
+      let A = new PresentationAvailability(value);                                // 2.1
+      availabilitySet.push({A: A, presentationUrls: pr.presentationUrls});        // 2.2
+    }
+    
+    let newDisplays = [];                                 // 3.
+    if (possible && allowed) {                            // 4.
+      this.monitorHandler().then((displays) => {          // 5.
+        newDisplays = displays;
+        
+        this.availablePresentationDisplays = [];          // 6.
+        availabilitySet.forEach(availability => {         // 7.
+          let previousAvailability = availability.A.value;  // 7.1
+          let newAvailability = true;                       // 7.2
+          availability.urls.forEach(availabilityUrl => {    // 7.3.
+            newDisplays.forEach(display => {                  // 7.3.1.
               // #TODO somehow check if display is an available presentation display
+              // For each display in newDisplays, if display is an available presentation display for availabilityUrl, then run the following steps
               let tuple = {availabilityUrl, display};
               if (!(this.availablePresentationDisplay.contains(tuple))) {
-                this.availablePresentationDisplays.push(tuple);   // 3.3.1.1.
+                this.availablePresentationDisplays.push(tuple); // 7.3.1.1.
               }
-              newAvailability = true;
+              newAvailability = true;                           // 7.3.1.2
             });
           });
-          
-          if (previousAvailabilty != newAvailability) {
-            aO.value = newAvailability;
-            aO.dispatchEvent(new Event("change"));
-          }
         });
-        
-        // near-end
-        this.monitoring = false;
-        if (tuple instanceof Array) {
-          // assume its [presentationUrl]
-          let value = tuple.length > 0; // 6.4.3  7.2 -> #TODO is this correct? i dont get this paragraph ..
-          let A = new PresentationAvailability(value);
-          return resolve(A);
-        } else {
-          // assume its {A, [presentationUrl]}
-          // 6.
-          return resolve(tuple.A);
-        }
       });
-    });
+    }
   }
-    
   
   urlsTest(urls) {
     return this.availablePresentationDisplays.some(apd => urls.contains(apd.availabilityUrl))
+  }
+  
+  /**
+   * 6.5.2.4
+   * Using an implementation specific mechanism, transmit the contents of messageOrData as the presentation message data and messageType as the presentation message type to the destination browsing context.
+   */
+  send(presentationMessageType, presentationMessageData) {
+    // example: {string: 'Hello, world!', lang: 'en-US'}") from https://w3c.github.io/presentation-api/#passing-locale-information-with-a-message
+    this.sendHandler();
+    // #TODO
   }
   
   /**
@@ -97,11 +109,13 @@ class DeviceDiscoverer {
    * @return {Promise}
    */
   letUserSelectDisplay(presentationUrls) {
+    this.pendingSelection = true;
     return this.getUserPermission()
     .then(v => {
        return this.getUserSelectedDisplay(presentationUrls);
     }).catch(() => {
       // 10.
+      this.pendingSelection = true;
       return new NotAllowedError();
     });
   }
@@ -139,6 +153,7 @@ class DeviceDiscoverer {
         /*
         The details of implementing the permission request and display selection are left to the user agent; for example it may show the user a dialog and allow the user to select an available display (granting permission), or cancel the selection (denying permission). Implementers are encouraged to show the user whether an available display is currently in use, to facilitate presentations that can make use of multiple displays.
         */
+        this.pendingSelection = false;
         resolve(D);
       }
     });
@@ -151,7 +166,7 @@ class DeviceDiscoverer {
    * @param {Promise} P - gets resolved with new PresentationConnection
    */
   startPresentationConnection(presentationRequest, D, P) {
-    
+    // #TODO
   }
   
   /**
@@ -166,6 +181,7 @@ class DeviceDiscoverer {
       this.availablePresentationDisplays = [];
     }
   }
+  
   
   /**
    * That's how the DeviceDiscovery shall work
@@ -277,8 +293,6 @@ class PresentationAvailability extends EventTarget {
     this.onchange = handler;
     this.addEventListener('change', this.onchange);
   }
-  
-  //#TODO 6.4.1
 }
 
 
@@ -437,6 +451,7 @@ class PresentationConnectionAvailableEvent extends Event {
 
 const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
 const BinaryType = {blob: 10, arrayBuffer: 11};
+const PresentationMessageType = {binary: 20, text: 21};
 /**
  * 6.5
  * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
@@ -465,6 +480,7 @@ class PresentationConnection extends EventTarget {
    * 6.5.1
    * connect
    * @param {PresentationConnection} this
+   * @param {DeviceDiscoverer} dd
    */
   establish(dd) {
     // 1.
@@ -488,6 +504,38 @@ class PresentationConnection extends EventTarget {
   }
   
   /**
+   * 6.5.2
+   * send message
+   * @param {PresentationConnection} this
+   * @param {DeviceDiscoverer} dd
+   * @param {payload data} messageOrData
+   */
+  send(dd, messageOrData) {
+    if (this.state !== PresentationConnectionState.connected) {
+      throw new InvalidStateError(); // 1.
+    }
+    
+    // 2. TODO
+    // If the closing procedure of presentationConnection has started, then abort these steps.
+    
+    // 3.
+    let messageType = null;
+    if (["ArrayBuffer", "ArrayBufferView", "Blob"].contains(messageOrData.constructor.name)) {
+      messageType = PresentationMessageType.binary;
+    }
+    if (messageOrData.constructor.name === "String") {
+      messageType = PresentationMessageType.text;
+    }
+    if (!messageType) {
+      throw new Error("Unsupported message Type in PresentationRequest.send()");
+    }
+    
+    dd.send(messageType, messageOrData).catch(err => { // 4.
+      this.close(PresentationConnectionClosedReasons.error, err); // 5.
+    });
+  }
+  
+  /**
    * 6.5.5
    * @param {PresentationConnection} this
    * @param {PresentationConnectionClosedReasons} closeReason
@@ -495,17 +543,21 @@ class PresentationConnection extends EventTarget {
    */
   close(closeReason, closeMessage) {
     if (!(this.state == PresentationConnectionState.connecting || this.state == PresentationConnectionState.connected)) {
-      return; // 1.
+      return;                                         // 1.
     }
-    this.state = PresentationConnectionState.closed;// 2.
-    this.implementationReference.close(closeReason); // 3.
-    if (!(closeReason == PresentationClosedReasons.wentaway)) {
-      
+    this.state = PresentationConnectionState.closed;  // 2.
+    this.implementationReference.close(closeReason);  // 3.
+    if (closeReason != PresentationClosedReasons.wentaway) {
+      // #TODO
+      // https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
     }
     
     //this.dispatchEvent(new Event("close"));
   }
   
+  /**
+   * 6.5.6
+   */
   terminate() {
     //#TODO
   }
