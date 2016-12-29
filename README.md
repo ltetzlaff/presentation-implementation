@@ -4,11 +4,11 @@
 
 ### Which Version is targeted?
 
-Draft vs last cr (06/16) ?? #TODO
+Draft
 
 ### Should we do testing?
 
-There is another topic on testing, so ..?
+There is another topic on testing, so *nope*
 
 
 
