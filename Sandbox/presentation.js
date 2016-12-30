@@ -26,6 +26,16 @@ function readOnly(to, propName, propValue) {
   Object.defineProperty(to, propName, {value: propValue, writable: false});
 }
 
+function createContext(url) {
+  let ifrm = document.createElement("iframe");
+  // scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0">
+  ifrm.setAttribute("src", url);
+  ifrm.style.width = "100%";
+  ifrm.style.height = "100%";
+  document.body.appendChild(ifrm);
+  return ifrm;
+}
+
 // --- CONTEXT ---
 /**
  * #TODO
@@ -73,6 +83,8 @@ function isSandboxedPresentation(doc) {
 }
 
 // ---  DEV API  ---
+// dd = new DeviceDiscoverer();
+
 /**
  * Custom class that opens the API to the user (dev)
  * 6.4.4 Monitor list of available presentation displays
@@ -180,7 +192,7 @@ class DeviceDiscoverer {
    */
   send(presentationMessageType, presentationMessageData) {
     // example: {string: 'Hello, world!', lang: 'en-US'}") from https://w3c.github.io/presentation-api/#passing-locale-information-with-a-message
-    return this.sendHandler();
+    return this.sendHandler(presentationMessageType, presentationMessageData);
   }
   
   /**
@@ -268,8 +280,8 @@ class DeviceDiscoverer {
    * 6.5.1
    * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
    */
-  connect(id) {
-    return this.connectHandler;
+  connect(id, url) {
+    return this.connectHandler(id, url);
   }
   
   /**
@@ -288,6 +300,11 @@ class DeviceDiscoverer {
 }
 
 // --- IMPLEMENTATION ---
+const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
+const PresentationConnectionClosedReasons = {error: 10, closed: 11, wentaway: 12};
+const PresentationMessageType = {binary: 20, text: 21};
+const BinaryType = {blob: 30, arrayBuffer: 31};
+
 // 6.2
 class Presentation {
   constructor() {
@@ -464,11 +481,6 @@ class PresentationConnectionAvailableEvent extends Event {
   }
 }
 
-const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
-const PresentationConnectionClosedReasons = {error: 10, closed: 11, wentaway: 12};
-const PresentationMessageType = {binary: 20, text: 21};
-const BinaryType = {blob: 30, arrayBuffer: 31};
-
 /**
  * 6.5
  * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
@@ -497,6 +509,7 @@ class PresentationConnection extends EventTarget {
    * 6.5.1
    * connect
    * @param {PresentationConnection} this
+   * @return {Promise<boolean>}
    */
   establish() {
     // 1.
@@ -506,16 +519,18 @@ class PresentationConnection extends EventTarget {
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    dd.connect(this.id)
+    return dd.connect(this.id, this.url)
       .then((reference) => {
         // 3.
         this.implementationReference = reference; // custom
         this.state = PresentationConnectionState.connected;
         this.dispatchEvent(new Event("change"));
+        return true;
       })
       .catch(() => {
         // 4.
         this.close(PresentationConnectionClosedReasons.error);
+        return false;
       });
   }
   
@@ -650,14 +665,86 @@ class PresentationConnectionCloseEventInit {
 }
 
 /**
- *
+ * 6.6
+ * https://w3c.github.io/presentation-api/#interface-presentationreceiver
  */
 class PresentationReceiver {
-  constructor() {
+  /**
+   * 6.6 + 6.6.1
+   * create receiver
+   * https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context
+   * @param {PresentationDisplay} D - chosen by user
+   * @param {String} presentationUrl - the presentation request url
+   * @param {String} presentationId - the presentation identifier
+   */
+  constructor(D, presentationUrl, presentationId) {
+    // 6.6
+    // Contains the presentation connections created by a receiving browsing context for the receiving user agent.
+    // All presentation connections in this set share the same presentation URL and presentation identifier.
+    this.presentationControllers = []; // {[PresentationConnection]}
+    
+    // exposes the current set of presentation controllers to the receiving application.
+    this.controllersMonitor = null; // {PresentationConnectionList}
+    
+    // provides the presentation controllers monitor once the initial presentation connection is established.
+    this.controllersPromise = null; // {Promise<PresentationConnectionList>}
+    
     this.connectionList = new Promise((resolve, reject) => {
-      
+      if (this.controllersPromise !== null) {
+        // 1.
+        return this.controllersPromise;
+      } else {
+        // 2.
+        this.controllersPromise = new Promise((resolve, reject) => {
+          // #TODO: once the initial presentation connection is established
+          // 4.
+          if (this.controllersMonitor !== null) {
+            resolve(this.controllersMonitor);
+          } else {
+            reject("presentation controllers monitor empty")
+          }
+        });
+        
+        // 3.
+        return this.controllersPromise;
+      }
       return resolve();
     });
+    
+    // 6.6.1
+    // #TODO i dont want to implement https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context :)
+    let C = createContext(presentationUrl);
+  }
+  
+  /**
+   * 6.7.1
+   * https://w3c.github.io/presentation-api/#monitoring-incoming-presentation-connections
+   * @param {String} I - the presentation identifier passed by the controlling browsing context with the incoming connection request
+   * @param {String} presentationId - the presentation identifier
+   * @param {String} presentationUrl - the presentation request url
+   */
+  monitorIncoming(I, presentationId, presentationUrl) {
+    if (I !== presentationId) {
+      return false;                                                 // 1.
+    }
+    let S = new PresentationConnection(I, presentationUrl);         // 2. - 4.
+    S.establish().then(success => {                                 // 5. - 6.
+      this.presentationControllers.push(S);                         // 7.
+      if (this.controllersMonitor === null) {                       // 8.
+        this.controllersMonitor = new PresentationConnectionList();   // 8.1
+        this.controllersMonitor.connections = this.controllersMonitor.connections.concat(this.presentationControllers); // 8.2
+        if (this.controllersPromise !== null) {
+          this.controllersPromise.resolve(this.controllersMonitor);
+        }
+        return;
+      } else {                                                      // 9.
+        this.controllersMonitor.connections = this.controllersMonitor.connections.concat(this.presentationControllers); // 9.1
+        // #TODO
+        // Queue a task to fire a trusted event with the name connectionavailable, that uses the PresentationConnectionAvailableEvent interface, with the connection attribute initialized to S, at the presentation controllers monitor. The event must not bubble, must not be cancelable, and has no default action.
+      }
+    });
+    
+    
   }
 }
 
