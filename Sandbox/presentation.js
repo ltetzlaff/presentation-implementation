@@ -1,3 +1,4 @@
+// ---   UTIL  ---
 function copy(dest, source, isDeep) {
   if (isDeep) {
     throw new NotImplementedException();
@@ -8,14 +9,88 @@ function copy(dest, source, isDeep) {
 }
 
 /**
+ * @param {Object} to - receiving object
+ * @param {String} propName
+ * @param {any} propValue - reference to value of the getter
+ */
+function makeGetter(to, propName, propValue) {
+  Object.defineProperty(to, propName, {get: () => propValue});
+}
+
+/**
+ * @param {Object} to - receiving object
+ * @param {String} propName
+ * @param {any} propValue - once written then twice shy
+ */
+function readOnly(to, propName, propValue) {
+  Object.defineProperty(to, propName, {value: propValue, writable: false});
+}
+
+// --- CONTEXT ---
+/**
+ * #TODO
+ * https://w3c.github.io/webappsec-mixed-content/#categorize-settings-object
+ * @return {boolean}
+ */
+function prohibitsMixedSecurityContents() {
+  // window.isSecureContext ?
+  return true;
+}
+
+function isMixedContentMismatch(presentationUrls) {
+  let mixedSecButUnauth = prohibitsMixedSecurityContents() && presentationUrls.some(u => isAPrioriUnauthenticatedURL(u)); // 2.-4.
+  if (mixedSecButUnauth || isSandboxedPresentation()) {
+    return true;
+  }
+}
+
+/**
+ * #TODO
+ * https://w3c.github.io/presentation-api/#dfn-a-priori-unauthenticated-url
+ * @return {boolean}
+ */
+function isAPrioriUnauthenticatedURL(url) {
+  return false;
+}
+
+/**
+ * #TODO
+ * https://www.w3.org/TR/html5/browsers.html#sandboxing-flag-set
+ * https://w3c.github.io/presentation-api/#sandboxed-presentation-browsing-context-flag
+ * @param {document} doc
+ */
+function getSandboxingFlag(doc) {
+  // i have no idea yet
+  return false;
+}
+
+/**
+ * @param {document} doc - optional
+ */
+function isSandboxedPresentation(doc) {
+  doc = doc || document;
+  return getSandboxingFlag(doc);
+}
+
+// ---  DEV API  ---
+/**
  * Custom class that opens the API to the user (dev)
  * 6.4.4 Monitor list of available presentation displays
  * https://w3c.github.io/presentation-api/#dfn-monitor-the-list-of-available-presentation-displays
  */
+let dd = null;
 class DeviceDiscoverer {
   constructor() {
     this.monitoring = false;
-    this.monitorHandler = () => {};
+    
+    // These shall be set by .set()
+    this.monitorHandler = new Promise((res, rej) => rej());
+    this.connectHandler = new Promise((res, rej) => rej());
+    this.sendHandler = new Promise((res, rej) => rej());
+    
+    // https://w3c.github.io/presentation-api/#dfn-set-of-controlled-presentations
+    this.controlledPresentations = [];
+    
     /**
      * Technically possible because there was a monitorHandler attached
      */
@@ -43,6 +118,10 @@ class DeviceDiscoverer {
      */
     this.availablePresentationDisplays = [];
 
+    // "Singleton"
+    dd = this;
+  
+    // Continous Monitoring
     if (this.allowed) {
       setInterval(this.monitor(), SCAN_PERIOD)
     }
@@ -96,11 +175,12 @@ class DeviceDiscoverer {
   /**
    * 6.5.2.4
    * Using an implementation specific mechanism, transmit the contents of messageOrData as the presentation message data and messageType as the presentation message type to the destination browsing context.
+   * @param {PresentationMessageType} presentationMessageType
+   * @param {string|binary} presentationMessageData
    */
   send(presentationMessageType, presentationMessageData) {
     // example: {string: 'Hello, world!', lang: 'en-US'}") from https://w3c.github.io/presentation-api/#passing-locale-information-with-a-message
-    this.sendHandler();
-    // #TODO
+    return this.sendHandler();
   }
   
   /**
@@ -167,6 +247,8 @@ class DeviceDiscoverer {
    */
   startPresentationConnection(presentationRequest, D, P) {
     // #TODO
+    let pc = new PresentationConnection();
+    this.controlledPresentations.push(pc);
   }
   
   /**
@@ -182,89 +264,30 @@ class DeviceDiscoverer {
     }
   }
   
+  /**
+   * 6.5.1
+   * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
+   */
+  connect(id) {
+    return this.connectHandler;
+  }
   
   /**
    * That's how the DeviceDiscovery shall work
-   * Must alter >this<
-   * @param {Promise<{A, [presentationUrl]}> | Promise<[presentationUrl]>} monitorHandler
+   * @param {Promise} handlerFct
    */
-  set(monitorHandler) {
-    if (!(monitorHandler instanceof Promise)) {
+  set(handlerName, handlerFct) {
+    if (!(handlerFct instanceof Promise)) {
       throw new NotSupportedError();
     }
-    this.monitorHandler = monitorHandler;
-    this.possible = true;
+    this[handlerName] = handlerFct;
+    if (handlerName === "connectHandler") {
+      this.possible = true;
+    }
   }
 }
 
-const deviceDiscoverer = new DeviceDiscoverer();
-
-
-/**
- * @param {Object} to - receiving object
- * @param {String} propName
- * @param {any} propValue - reference to value of the getter
- */
-function makeGetter(to, propName, propValue) {
-  Object.defineProperty(to, propName, {get: () => propValue});
-}
-
-/**
- * @param {Object} to - receiving object
- * @param {String} propName
- * @param {any} propValue - once written then twice shy
- */
-function readOnly(to, propName, propValue) {
-  Object.defineProperty(to, propName, {value: propValue, writable: false});
-}
-
-
-/**
- * #TODO
- * https://w3c.github.io/webappsec-mixed-content/#categorize-settings-object
- * @return {boolean}
- */
-function prohibitsMixedSecurityContents() {
-  // window.isSecureContext ?
-  return true;
-}
-
-function isMixedContentMismatch(presentationUrls) {
-  let mixedSecButUnauth = prohibitsMixedSecurityContents() && presentationUrls.some(u => isAPrioriUnauthenticatedURL(u)); // 2.-4.
-  if (mixedSecButUnauth || isSandboxedPresentation()) {
-    return true;
-  }
-}
-
-/**
- * #TODO
- * https://w3c.github.io/presentation-api/#dfn-a-priori-unauthenticated-url
- * @return {boolean}
- */
-function isAPrioriUnauthenticatedURL(url) {
-  return false;
-}
-
-/**
- * #TODO
- * https://www.w3.org/TR/html5/browsers.html#sandboxing-flag-set
- * https://w3c.github.io/presentation-api/#sandboxed-presentation-browsing-context-flag
- * @param {document} doc
- */
-function getSandboxingFlag(doc) {
-  // i have no idea yet
-  return false;
-}
-
-/**
- * @param {document} doc - optional
- */
-function isSandboxedPresentation(doc) {
-  doc = doc || document;
-  return getSandboxingFlag(doc);
-}
-
-
+// --- IMPLEMENTATION ---
 // 6.2
 class Presentation {
   constructor() {
@@ -277,8 +300,6 @@ class Presentation {
     makeGetter(window.navigator, "presentation", this);
   }
 }
-
-
 
 /**
  * 6.4 https://w3c.github.io/presentation-api/#interface-presentationavailability
@@ -294,8 +315,6 @@ class PresentationAvailability extends EventTarget {
     this.addEventListener('change', this.onchange);
   }
 }
-
-
 
 
 // https://w3c.github.io/presentation-api/#idl-def-presentationrequest
@@ -327,10 +346,9 @@ class PresentationRequest {
   /**
    * 6.3.2 https://w3c.github.io/presentation-api/#dom-presentationrequest-start
    * @param {PresentationRequest} this
-   * @param {DeviceDiscoverer} dd
    * @return {Promise<PresentationConnection>}
    */
-  start(dd) {
+  start() {
     return new Promise((resolve, reject) => {
       if (!allowedToShowPopup()) {
         return reject(new InvalidAccessError()); // 1.
@@ -369,9 +387,7 @@ class PresentationRequest {
     if (isSandboxedPresentation(W)) {
       return;
     }
-    
   }
-  
   
   /**
    * 6.3.5
@@ -398,7 +414,6 @@ class PresentationRequest {
       }
       
       return new Promise((resolve, reject) => { // 2., 3.
-        let dd = deviceDiscoverer;
         // 4.
         if (!dd.allowed) {
           console.warn("Not allowed to monitor available presentation displays.");
@@ -450,13 +465,15 @@ class PresentationConnectionAvailableEvent extends Event {
 }
 
 const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
-const BinaryType = {blob: 10, arrayBuffer: 11};
+const PresentationConnectionClosedReasons = {error: 10, closed: 11, wentaway: 12};
 const PresentationMessageType = {binary: 20, text: 21};
+const BinaryType = {blob: 30, arrayBuffer: 31};
+
 /**
  * 6.5
  * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
- * @param {USVString} id
- * @param {USVString} url
+ * @param {String} id
+ * @param {String} url
  * @param {PresentationConnectionState} state
  */
 class PresentationConnection extends EventTarget {
@@ -480,9 +497,8 @@ class PresentationConnection extends EventTarget {
    * 6.5.1
    * connect
    * @param {PresentationConnection} this
-   * @param {DeviceDiscoverer} dd
    */
-  establish(dd) {
+  establish() {
     // 1.
     if (this.state !== PresentationConnectionState.connecting) {
       return;
@@ -507,10 +523,9 @@ class PresentationConnection extends EventTarget {
    * 6.5.2
    * send message
    * @param {PresentationConnection} this
-   * @param {DeviceDiscoverer} dd
    * @param {payload data} messageOrData
    */
-  send(dd, messageOrData) {
+  send(messageOrData) {
     if (this.state !== PresentationConnectionState.connected) {
       throw new InvalidStateError(); // 1.
     }
@@ -536,6 +551,22 @@ class PresentationConnection extends EventTarget {
   }
   
   /**
+   * 6.5.3
+   * receive message
+   * @param {PresentationConnection} this
+   * @param {PresentationMessageType} presentationMessageType
+   * @param {string|binary} presentationMessageData
+   */
+  receive(presentationMessageType, presentationMessageData) {
+    if (this.state !== PresentationConnectionState.connected) {
+      return; // 1.
+    }
+    
+    // 2.-4.
+    // #TODO https://w3c.github.io/presentation-api/#receiving-a-message-through-presentationconnection
+  }
+  
+  /**
    * 6.5.5
    * @param {PresentationConnection} this
    * @param {PresentationConnectionClosedReasons} closeReason
@@ -557,54 +588,43 @@ class PresentationConnection extends EventTarget {
   
   /**
    * 6.5.6
+   * terminate controlling
    */
   terminate() {
-    //#TODO
+    if (this.state != PresentationConnectionState.connected) {
+      return; // 1.
+    }
+    
+    dd.controlledPresentations.forEach(knownConnection => { // 2.
+      if (this.id === knownConnection.id && knownConnection.state == PresentationConnectionState.connected) { // 2.1
+        // #TODO queue a task to run the following steps
+        knownConnection.state = PresentationConnectionState.terminated; // 2.1.1
+        knownConnection.dispatchEvent(new Event("terminate"));// 2.1.2
+      }
+    });
+    
+    // 3.
+    // #TODO
+    // Send a termination request for the presentation to its receiving user agent using an implementation specific mechanism.
   }
   
   /**
-   * @param {DOMString, Blob, ArrayBuffer, ArrayBufferView} data
+   * 6.5.7
+   * terminate receiving
+   * https://w3c.github.io/presentation-api/#terminating-a-presentation-in-a-receiving-browsing-context
    */
-  send(data) {
-    //switch (typeof data) {
-    switch (data.constructor.name) {
-      case "String":
-        
-        break;
-      case "Blob":
-        
-        break;
-      case "ArrayBuffer":
-        
-        break;
-      case "ArrayBufferView":
-        
-        break;
-      default:
-        console.error(data.constructor.name, typeof data);
-        break;
-    }
-    //#TODO
-  }
+  //#TODO
+   
+   /**
+   * 6.5.8
+   * terminate receiving -> handle in controlling
+   * https://w3c.github.io/presentation-api/#handling-a-termination-confirmation-in-a-controlling-user-agent
+   */
+  //#TODO
 }
 
 /**
- *
- */
-const PresentationConnectionClosedReasons = {error: 0, closed: 1, wentaway: 2};
-class PresentationConnectionCloseEventInit {
-  /**
-   * @param {String} reason
-   * @param {DOMString} message
-   */
-  constructor(reason, message) {
-    if (!reason || PresentationConnectionClosedReasons.some(pccr => pccr === reason)) {
-      // #TODO throw something, this is required and must be in array
-    }
-  }
-}
-
-/**
+ * 6.5.4a
  * https://w3c.github.io/presentation-api/#idl-def-presentationconnectioncloseevent
  */
 class PresentationConnectionCloseEvent extends Event{
@@ -613,6 +633,19 @@ class PresentationConnectionCloseEvent extends Event{
    */
   constructor(type, eventInitDict) {
     
+  }
+}
+
+class PresentationConnectionCloseEventInit {
+  /**
+   * 6.5.4b
+   * @param {String} reason
+   * @param {DOMString} message
+   */
+  constructor(reason, message) {
+    if (!reason || PresentationConnectionClosedReasons.some(pccr => pccr === reason)) {
+      // #TODO throw something, this is required and must be in array
+    }
   }
 }
 
