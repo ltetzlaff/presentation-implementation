@@ -1,8 +1,8 @@
 html
   head
     title= title
+    script(src="util.js")
     script(src="presentation.js")
-    script.
-      dd = new DeviceDiscoverer();
+    block js
   body
     block content

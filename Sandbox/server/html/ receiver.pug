@@ -1,0 +1,10 @@
+extends layout.pug
+
+block js
+  script.
+    dd = new DeviceDiscoverer();
+    $("#host").addEventListener("click", () => {
+      dd.receiver = new PresentationReceiver();
+    });
+block content
+  button#host Host

@@ -47,14 +47,14 @@ router.get('/', (req, res) => {
 router.post("/join", (req, res) => {
   let form = req.body; // {id: "Room1", name: "John Doe", url: "123.gg/room1"}
   receivers.find(r => r.id === form.id).notify("joined", form.name);
-  console.log("controller");
+  console.log("controller:", form);
   res.send("OK");
 })
 
 router.post("/host", (req, res) => {
   let form = req.body;
-  receivers.push(new Receiver(id, url));
-  console.log("receiver: #TODO");
+  receivers.push(new Receiver(form.id, form.url));
+  console.log("receiver:", form);
   res.send("OK");
 });
 

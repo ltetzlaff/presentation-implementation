@@ -283,7 +283,7 @@ class PresentationConnection extends EventTarget {
     readOnly(this, "id", id);
     readOnly(this, "url", url);
     readOnly(this, "state", PresentationConnectionState.connecting);
-    this.implementationReference = null; // custom
+    //this.implementationReference = null; // custom
     
     this.onconnect = null;
     this.onclose = null;
@@ -311,7 +311,7 @@ class PresentationConnection extends EventTarget {
     return dd.connect(this.id, this.url)
       .then((reference) => {
         // 3.
-        this.implementationReference = reference; // custom
+        //this.implementationReference = reference; // custom
         this.state = PresentationConnectionState.connected;
         this.dispatchEvent(new Event("change"));
         return true;
@@ -381,7 +381,8 @@ class PresentationConnection extends EventTarget {
       return;                                         // 1.
     }
     this.state = PresentationConnectionState.closed;  // 2.
-    this.implementationReference.close(closeReason);  // 3.
+    //this.implementationReference.close(closeReason);  // 3.
+    dd.close(closeReason);
     if (closeReason != PresentationClosedReasons.wentaway) {
       // #TODO
       // https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
@@ -505,6 +506,9 @@ class PresentationReceiver {
     // 6.6.1
     // #TODO i dont want to implement https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context :)
     let C = createContext(presentationUrl);
+    if (dd.hostHandler) {
+      dd.hostHandler();
+    }
   }
   
   /**
@@ -557,10 +561,12 @@ class DeviceDiscoverer extends Presentation {
     super();
     this.monitoring = false;
     
-    // These shall be set by .set()
+    // These shall be set by ._set() during configure(), auto-reject if they are mandatory
     this.monitorHandler = () => new Promise((res, rej) => rej());
     this.connectHandler = () => new Promise((res, rej) => rej());
     this.sendHandler    = () => new Promise((res, rej) => rej());
+    this.receiveHandler = () => new Promise((res, rej) => rej());
+    this.hostHandler    = () => new Promise((res, rej) => res());
     
     // https://w3c.github.io/presentation-api/#dfn-set-of-controlled-presentations
     this.controlledPresentations = [];
@@ -569,8 +575,6 @@ class DeviceDiscoverer extends Presentation {
      * Technically possible because there was a monitorHandler attached
      */
     this.possible = false;
-    
-    this.implementationReference = null; // .close(reason) must be there
     
     /**
      * Allowed by user
@@ -633,6 +637,7 @@ class DeviceDiscoverer extends Presentation {
               let tuple = {availabilityUrl, display};
               if (!(this.availablePresentationDisplay.contains(tuple))) {
                 this.availablePresentationDisplays.push(tuple); // 7.3.1.1.
+                console.log("new display detected: " + tuple);
               }
               newAvailability = true;                           // 7.3.1.2
             });
@@ -743,11 +748,33 @@ class DeviceDiscoverer extends Presentation {
    * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
    */
   connect(id, url) {
-    return this.connectHandler(id, url).then(success => {
+    return this.connectHandler(id, url)/*.then(success => {
       if (dd.receiver !== null) {
         dd.receiver.handleClient(id, url);
       }
       return true;
+    })*/;
+  }
+  
+  /**
+   * Notify other party to close the connection
+   * @param {PresentationConnectionClosedReasons} reason
+   */
+  close(reason) {
+    return this.closeHandler(reason);
+  }
+  
+  /**
+   * Configure API
+   * "Implementation-specific" part in spec
+   * @param {ImplementationConfig} ic
+   */
+  configure(ic) {
+    // #HACK faster than looking up proper reflection, ES6 assign doesnt take over methods ¯\_(ツ)_/¯
+    console.log("loaded Implementation: " + ic.name);
+    ["monitor", "connect", "send", "receive", "close", "host"].forEach(h => {
+      let handler = h + "Handler";
+      this._set(handler, ic[handler]);
     });
   }
   
@@ -755,7 +782,7 @@ class DeviceDiscoverer extends Presentation {
    * That's how the DeviceDiscovery shall work
    * @param {Promise} handlerFct
    */
-  set(handlerName, handlerFct) {
+  _set(handlerName, handlerFct) {
     if (!(handlerFct instanceof Promise)) {
       throw new NotSupportedError();
     }
@@ -763,5 +790,28 @@ class DeviceDiscoverer extends Presentation {
     if (handlerName === "connectHandler") {
       this.possible = true;
     }
+  }
+}
+
+class ImplementationConfig {
+  /**
+   * @param {String }           name - human readable name
+   * @param {Promise} monitorHandler - how do you seek out for new displays,
+   * @param {Promise} connectHandler - connect to them,
+   * @param {Promise}    sendHandler - send messages to them,
+   * @param {Promise} receiveHandler - receive messages
+   * @param {Promise}   closeHandler - notify them to close connection
+   *
+   * @param {Promise}    hostHandler - optional, what happens if you instantiate a new receiver (tell some server maybe?)
+   *
+   */
+  constructor(name, monitorHandler, connectHandler, sendHandler, receiveHandler, closeHandler, hostHandler) {
+    this.name           = name;
+    this.monitorHandler = monitorHandler;
+    this.connectHandler = connectHandler;
+    this.sendHandler    =    sendHandler;
+    this.receiveHandler = receiveHandler;
+    this.closeHandler   =   closeHandler;
+    this.hostHandler    =    hostHandler;
   }
 }
