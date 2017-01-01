@@ -1,92 +1,5 @@
+// require util.js
 let dd = null;
-
-// ---   UTIL  ---
-function copy(dest, source, isDeep) {
-  if (isDeep) {
-    throw new NotImplementedException();
-  } else {
-    // http://www.2ality.com/2014/01/object-assign.html
-    dest = Object.assign({}, source);
-  }
-}
-
-/**
- * @param {Object} to - receiving object
- * @param {String} propName
- * @param {any} propValue - reference to value of the getter
- */
-function makeGetter(to, propName, propValue) {
-  Object.defineProperty(to, propName, {get: () => propValue});
-}
-
-/**
- * @param {Object} to - receiving object
- * @param {String} propName
- * @param {any} propValue - once written then twice shy
- */
-function readOnly(to, propName, propValue) {
-  Object.defineProperty(to, propName, {value: propValue, writable: false});
-}
-
-/**
- * @param {String} url
- * @return {DOMElement}
- */
-function createContext(url) {
-  let ifrm = document.createElement("iframe");
-  // scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0">
-  ifrm.setAttribute("src", url);
-  ifrm.style.width = "100%";
-  ifrm.style.height = "100%";
-  document.body.appendChild(ifrm);
-  return ifrm;
-}
-
-// --- CONTEXT ---
-/**
- * #TODO
- * https://w3c.github.io/webappsec-mixed-content/#categorize-settings-object
- * @return {boolean}
- */
-function prohibitsMixedSecurityContents() {
-  // window.isSecureContext ?
-  return true;
-}
-
-function isMixedContentMismatch(presentationUrls) {
-  let mixedSecButUnauth = prohibitsMixedSecurityContents() && presentationUrls.some(u => isAPrioriUnauthenticatedURL(u)); // 2.-4.
-  if (mixedSecButUnauth || isSandboxedPresentation()) {
-    return true;
-  }
-}
-
-/**
- * #TODO
- * https://w3c.github.io/presentation-api/#dfn-a-priori-unauthenticated-url
- * @return {boolean}
- */
-function isAPrioriUnauthenticatedURL(url) {
-  return false;
-}
-
-/**
- * #TODO
- * https://www.w3.org/TR/html5/browsers.html#sandboxing-flag-set
- * https://w3c.github.io/presentation-api/#sandboxed-presentation-browsing-context-flag
- * @param {document} doc
- */
-function getSandboxingFlag(doc) {
-  // i have no idea yet
-  return false;
-}
-
-/**
- * @param {document} doc - optional
- */
-function isSandboxedPresentation(doc) {
-  doc = doc || document;
-  return getSandboxingFlag(doc);
-}
 
 // --- IMPLEMENTATION ---
 const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
@@ -159,7 +72,7 @@ class PresentationRequest {
       if (!allowedToShowPopup()) {
         return reject(new InvalidAccessError()); // 1.
       }
-      if (isMixedContentMismatch(this.presentationUrls) || isSandboxedPresentation()) { // 2. - 4.
+      if (Browser.isMixedContentMismatch(this.presentationUrls) || Browser.isSandboxedPresentation()) { // 2. - 4.
         return reject(new SecurityError());
       }
       
@@ -190,7 +103,7 @@ class PresentationRequest {
    */
   static startDefault(W, presentationRequest, D) {
     let presentationUrls = presentationRequest.presentationUrls; // 1.
-    if (isSandboxedPresentation(W)) {
+    if (Browser.isSandboxedPresentation(W)) {
       return;
     }
   }
@@ -215,7 +128,7 @@ class PresentationRequest {
    */
   getAvailability(presentationUrls) {
     return new Promise((resolve, reject) => {
-      if (isMixedContentMismatch(presentationUrls) || isSandboxedPresentation()) { // 1.
+      if (Browser.isMixedContentMismatch(presentationUrls) || Browser.isSandboxedPresentation()) { // 1.
         return reject(new SecurityError());
       }
       
@@ -463,7 +376,7 @@ class PresentationReceiver {
    * 6.6 + 6.6.1
    * create receiver
    * https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context
-   * @param {PresentationDisplay} D - chosen by user
+   * @param {PresentationDisplay} D
    * @param {String} presentationUrl - the presentation request url
    * @param {String} presentationId - the presentation identifier
    */
@@ -492,8 +405,6 @@ class PresentationReceiver {
           // 4.
           if (this.controllersMonitor !== null) {
             resolve(this.controllersMonitor);
-          } else {
-            reject("presentation controllers monitor empty")
           }
         });
         
@@ -562,11 +473,11 @@ class DeviceDiscoverer extends Presentation {
     this.monitoring = false;
     
     // These shall be set by ._set() during configure(), auto-reject if they are mandatory
-    this.monitorHandler = () => new Promise((res, rej) => rej());
-    this.connectHandler = () => new Promise((res, rej) => rej());
-    this.sendHandler    = () => new Promise((res, rej) => rej());
-    this.receiveHandler = () => new Promise((res, rej) => rej());
-    this.hostHandler    = () => new Promise((res, rej) => res());
+    this.monitorHandler = () => Promise.reject();
+    this.connectHandler = () => Promise.reject();
+    this.sendHandler    = () => Promise.reject();
+    this.receiveHandler = () => Promise.reject();
+    this.hostHandler    = () => Promise.resolve();
     
     // https://w3c.github.io/presentation-api/#dfn-set-of-controlled-presentations
     this.controlledPresentations = [];
@@ -780,12 +691,13 @@ class DeviceDiscoverer extends Presentation {
   
   /**
    * That's how the DeviceDiscovery shall work
-   * @param {Promise} handlerFct
+   * @param {Function<Promise>} handlerFct
    */
   _set(handlerName, handlerFct) {
-    if (!(handlerFct instanceof Promise)) {
-      throw new NotSupportedError();
-    }
+    /*if (!(handlerFct && handlerFct.then)) {
+      console.log(handlerName, handlerFct, handlerFct.then)
+      throw new TypeError();
+    }*/
     this[handlerName] = handlerFct;
     if (handlerName === "connectHandler") {
       this.possible = true;

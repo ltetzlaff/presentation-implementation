@@ -40,9 +40,15 @@ const controllers = [];
 const router = express.Router();
 
 // List all participants etc
-router.get('/', (req, res) => {
-  res.render('overview', {title: 'Overview'});
+router.get("/", (req, res) => {
+  res.render("overview", {title: "Overview"});
 });
+
+let simpleRoutes = ["receiver", "demoPage"].forEach(page => {
+  router.get("/" + page, (req, res) => {
+    res.render(page, {title: page})
+  });
+})
 
 router.post("/join", (req, res) => {
   let form = req.body; // {id: "Room1", name: "John Doe", url: "123.gg/room1"}
