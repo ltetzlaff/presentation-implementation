@@ -20,13 +20,16 @@ class Presentation {
   }
 }
 
+
 /**
  * 6.4 https://w3c.github.io/presentation-api/#interface-presentationavailability
  */
-class PresentationAvailability extends EventTarget {
+class PresentationAvailability {
   constructor(value) {
     this.value = value; // <-- must only be set by https://w3c.github.io/presentation-api/#interface-presentationavailability #TODO
     this.onchange = null;
+    
+    implement(this, EventTarget);
   }
   
   attachOnchange(handler) {
@@ -41,7 +44,7 @@ class PresentationRequest {
   // 6.3.1
   constructor(urls) {
     if (!urls) {
-      throw new NotSupportedError(); // 1.
+      throw new DOMException(DOMException.NOT_SUPPORTED_ERROR); // 1.
     }
     
     if (!(urls instanceof Array)) {
@@ -51,15 +54,16 @@ class PresentationRequest {
     // #TODO check if implementation is according to spec
     // spec says baseurl should come from https://html.spec.whatwg.org/multipage/webappapis.html#current-settings-object
     this.presentationUrls = []; //3.
-    let baseurl = new RegExp(/^.*\//).exec(window.location.href);
+    let baseUrl = new RegExp(/^.*\//).exec(window.location.href)[0];
     urls.forEach(url => {
       // url resolving like in nodejs (https://nodejs.org/api/url.html) is experimental: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
-      this.presentationUrls.push(new URL(url, baseUrl)) // 4., throws SyntaxError correctly
+      this.presentationUrls.push(new URL(url, baseUrl)); // 4., throws SyntaxError correctly
     });
     
     this.onconnectionavailable = null;
     this.presentationAvailabilityPromise = null;
     this.presentationDisplayAvailability = null;
+    this.getAvailabilityPending = null;
   }
   
   /**
@@ -69,7 +73,7 @@ class PresentationRequest {
    */
   start() {
     return new Promise((resolve, reject) => {
-      if (!allowedToShowPopup()) {
+      if (!Browser.allowedToShowPopup()) {
         return reject(new InvalidAccessError()); // 1.
       }
       if (Browser.isMixedContentMismatch(this.presentationUrls) || Browser.isSandboxedPresentation()) { // 2. - 4.
@@ -123,49 +127,38 @@ class PresentationRequest {
   /**
    * 6.4.3
    * https://w3c.github.io/presentation-api/#dom-presentationrequest-getavailability
-   * @param {Array} presentationUrls - #TODO
+   * @param {PresentationRequest} this
    * @return {Promise<PresentationAvailability>}
    */
-  getAvailability(presentationUrls) {
-    return new Promise((resolve, reject) => {
-      if (Browser.isMixedContentMismatch(presentationUrls) || Browser.isSandboxedPresentation()) { // 1.
-        return reject(new SecurityError());
+  getAvailability() {
+    // 1.
+    if (this.getAvailabilityPending !== null) {
+      return this.getAvailabilityPending;
+    }
+    
+    let P = new Promise((resolve, reject) => {                          // 2.
+      if (dd.allowed < DiscoveryAllowance.continous) {                  // 4.
+        console.warn("Not possible to monitor available presentation displays.");
+        this.getAvailabilityPending = null;
+        return reject(new DOMException(DOMException.NOT_SUPPORTED_ERROR));
       }
       
-      return new Promise((resolve, reject) => { // 2., 3.
-        // 4.
-        if (!dd.allowed) {
-          console.warn("Not allowed to monitor available presentation displays.");
-          return resolve(new PresentationAvailability(false));
-        }
-        
-        // 5.
-        if (!dd.possible) {
-          console.warn("Not possible to monitor available presentation displays.");
-          return reject(new NotSupportedError());
-        }
-        
-        // 6.
-        dd.availabilityObjects.forEach(aO => {
-          if (aO.presentationUrls == presentationUrls) {
-            return resolve(ao.A);
-          }
-        });
-          
-        // 7.
-        let value = dd.urlsTest(presentationUrls);
-        let A = new PresentationAvailability(value);
-        
-        // 8.
-        dd.availabilityObjects.push({A: A, urls: presentationUrls});
-        
-        // 9.
-        dd.monitor();
-        
-        // 10.
-        return resolve(A);
-      });
+      if (this.presentationDisplayAvailability !== null) {
+        this.getAvailabilityPending = null;
+        return resolve(this.presentationDisplayAvailability);           // 5.
+      }
+      
+      let value = dd.urlsTest(this.presentationUrls);
+      let A = new PresentationAvailability(value);                      // 6.
+      dd.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
+      dd.monitor();                                                     // 8.
+      
+      this.getAvailabilityPending = null;
+      return resolve(A);                                                // 9.
     });
+    
+    this.getAvailabilityPending = P;
+    return P;                                                           // 3.
   }
 }
 
@@ -179,6 +172,7 @@ class PresentationConnectionAvailableEvent extends Event {
    * @param {PresentationConnectionAvailableEventInit} eventInitDict - see https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableeventinit {connection: {PresentationConnect}}
    */
   constructor(type, eventInitDict) {
+    super();
     readOnly(this, "connection", eventInitDict.connection);
   }
 }
@@ -190,8 +184,10 @@ class PresentationConnectionAvailableEvent extends Event {
  * @param {String} url
  * @param {PresentationConnectionState} state
  */
-class PresentationConnection extends EventTarget {
+class PresentationConnection {
   constructor(id, url) {
+    implement(this, EventTarget);
+    
     // {presentation identifier}
     readOnly(this, "id", id);
     readOnly(this, "url", url);
@@ -244,7 +240,7 @@ class PresentationConnection extends EventTarget {
    */
   send(messageOrData) {
     if (this.state !== PresentationConnectionState.connected) {
-      throw new InvalidStateError(); // 1.
+      throw new DOMException(DOMException.INVALID_STATE_ERROR); // 1.
     }
     
     // 2. TODO
@@ -252,7 +248,7 @@ class PresentationConnection extends EventTarget {
     
     // 3.
     let messageType = null;
-    if (["ArrayBuffer", "ArrayBufferView", "Blob"].contains(messageOrData.constructor.name)) {
+    if (["ArrayBuffer", "ArrayBufferView", "Blob"].includes(messageOrData.constructor.name)) {
       messageType = PresentationMessageType.binary;
     }
     if (messageOrData.constructor.name === "String") {
@@ -350,7 +346,7 @@ class PresentationConnectionCloseEvent extends Event{
    * @param {DOMString} type
    */
   constructor(type, eventInitDict) {
-    
+    super();
   }
 }
 
@@ -452,8 +448,10 @@ class PresentationReceiver {
   }
 }
 
-class PresentationConnectionList extends EventTarget {
+class PresentationConnectionList {
   constructor() {
+    implement(this, EventTarget);
+    
     this.connections = [];
     this.onconnectionavailable = null;
   }
@@ -490,7 +488,7 @@ class DeviceDiscoverer extends Presentation {
     /**
      * Allowed by user
      */
-    this.allowed = false; // #TODO based on user agent
+    this.allowed = Browser.getDiscoveryAllowance(); // #TODO based on user agent
     this.SCAN_PERIOD = 10e3;
     
     /**
@@ -511,8 +509,8 @@ class DeviceDiscoverer extends Presentation {
     dd = this;
   
     // Continous Monitoring
-    if (this.allowed) {
-      setInterval(this.monitor(), SCAN_PERIOD)
+    if (this.allowed == DiscoveryAllowance.continous) {
+      setInterval(this.monitor(), this.SCAN_PERIOD);
     }
   }
   
@@ -524,8 +522,7 @@ class DeviceDiscoverer extends Presentation {
    */
   monitor(pr) {
     this.monitoring = true;
-    let availabilitySet = {};
-    copy(availabilitySet, this.availabilityObjects, false);// 1.
+    let availabilitySet = this.availabilityObjects || [];// 1.
     
     if (this.pendingSelection && pr.presentationDisplayAvailability === null) { // 2.
       let A = new PresentationAvailability(value);                                // 2.1
@@ -533,10 +530,12 @@ class DeviceDiscoverer extends Presentation {
     }
     
     let newDisplays = [];                                 // 3.
-    if (possible && allowed) {                            // 4.
+    if (this.possible && this.allowed) {                  // 4.
       this.monitorHandler().then((displays) => {          // 5.
         newDisplays = displays;
-        
+        console.log("displays:", displays);
+        console.log("availabilitySet:", availabilitySet);
+        console.log("availabilityObj:", this.availabilityObjects);
         this.availablePresentationDisplays = [];          // 6.
         availabilitySet.forEach(availability => {         // 7.
           let previousAvailability = availability.A.value;  // 7.1
@@ -546,20 +545,23 @@ class DeviceDiscoverer extends Presentation {
               // #TODO somehow check if display is an available presentation display
               // For each display in newDisplays, if display is an available presentation display for availabilityUrl, then run the following steps
               let tuple = {availabilityUrl, display};
-              if (!(this.availablePresentationDisplay.contains(tuple))) {
+              if (!(this.availablePresentationDisplays.includes(tuple))) {
                 this.availablePresentationDisplays.push(tuple); // 7.3.1.1.
-                console.log("new display detected: " + tuple);
+                console.log("new display detected: ", tuple);
               }
+              this.monitoring = false;
               newAvailability = true;                           // 7.3.1.2
             });
           });
         });
       });
+    } else {
+      this.monitoring = false;
     }
   }
   
   urlsTest(urls) {
-    return this.availablePresentationDisplays.some(apd => urls.contains(apd.availabilityUrl))
+    return this.availablePresentationDisplays.some(apd => urls.includes(apd.availabilityUrl));
   }
   
   /**
@@ -581,12 +583,13 @@ class DeviceDiscoverer extends Presentation {
   letUserSelectDisplay(presentationUrls) {
     this.pendingSelection = true;
     return this.getUserPermission()
-    .then(v => {
-       return this.getUserSelectedDisplay(presentationUrls);
-    }).catch(() => {
+    .catch(() => {
       // 10.
       this.pendingSelection = true;
-      return new NotAllowedError();
+      throw new DOMException(DOMException.NOT_ALLOWED_ERROR);
+    })
+    .then(v => {
+       return this.getUserSelectedDisplay(presentationUrls);
     });
   }
   
@@ -599,6 +602,7 @@ class DeviceDiscoverer extends Presentation {
       if (this.allowed) {
         resolve(this.allowed);
       } else {
+        console.warn("Asking for User Permission not allowed")
         reject();
       }
     });
@@ -615,8 +619,10 @@ class DeviceDiscoverer extends Presentation {
     return new Promise((resolve, reject) => {
       let empty = this.availablePresentationDisplays.length === 0; // #TODO add check if currently monitoring etc => "stays empty"
       let couldConnectToAnUrl = this.urlsTest(presentationUrls);
+      //console.log(this.availablePresentationDisplays, presentationUrls);
+      console.log(empty, couldConnectToAnUrl);
       if (empty || !couldConnectToAnUrl) {
-        reject(new NotFoundError());
+        reject(new DOMException(DOMException.NOT_FOUND_ERROR));
       } else {
         // Ask user which display shall be taken
         let D = null; // #TODO
@@ -696,7 +702,7 @@ class DeviceDiscoverer extends Presentation {
   _set(handlerName, handlerFct) {
     /*if (!(handlerFct && handlerFct.then)) {
       console.log(handlerName, handlerFct, handlerFct.then)
-      throw new TypeError();
+      throw new DOMException(DOMException.TYPE_ERROR);
     }*/
     this[handlerName] = handlerFct;
     if (handlerName === "connectHandler") {

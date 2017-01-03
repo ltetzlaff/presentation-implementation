@@ -44,7 +44,7 @@ router.get("/", (req, res) => {
   res.render("overview", {title: "Overview"});
 });
 
-let simpleRoutes = ["receiver", "demoPage"].forEach(page => {
+let simpleRoutes = ["receiver", "demoPage", "controller"].forEach(page => {
   router.get("/" + page, (req, res) => {
     res.render(page, {title: page})
   });

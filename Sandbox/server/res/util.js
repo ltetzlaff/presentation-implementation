@@ -52,6 +52,13 @@ function ajax(method, url, data) {
 }
 
 
+function implement(instance, I) {
+  for (let prop in I) {
+    instance[prop] = I[prop];
+  }
+}
+
+
 function copy(dest, source, isDeep) {
   if (isDeep) {
     throw new NotImplementedException();
@@ -93,9 +100,26 @@ function createContext(url) {
   return ifrm;
 }
 
-
+// none: must not discover, manual: may discover if initiated manually (powersave), continous: do what Bam Margera will do next
+const DiscoveryAllowance = {none: 0, manual: 1, continous: 2};
 
 class Browser {
+  /**
+   * #TODO
+   */
+  static getDiscoveryAllowance() {
+    return DiscoveryAllowance.continous;
+  }
+  
+  
+  /**
+   * https://www.w3.org/TR/html5/browsers.html#allowed-to-show-a-popup
+   * #TODO
+   */
+  static allowedToShowPopup(context) {
+    return true;
+  }
+  
   /**
    * #TODO
    * https://w3c.github.io/webappsec-mixed-content/#categorize-settings-object
