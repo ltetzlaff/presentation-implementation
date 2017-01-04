@@ -6,11 +6,10 @@ block js
     ready(() => {
       $("#join").addEventListener("click", () => {
         let req = new PresentationRequest($("#url").value);
-        req.getAvailability();
-        /*.then(a => {
+        req.getAvailability().then(a => {
           console.log("availability: ", a);
           req.start();
-        });*/
+        });
       });
     });
 block content

@@ -1,5 +1,4 @@
 // require util.js
-let dd = null;
 
 // --- IMPLEMENTATION ---
 const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
@@ -83,15 +82,15 @@ class PresentationRequest {
       // 5.
       let P = new Promise((resolve, reject) => {
         // 7.
-        if (!dd.monitoring) {
-          dd.monitor();
+        if (!window.navigator.presentation.monitoring) {
+          window.navigator.presentation.monitor();
         }
         
         // 8.
-        dd.letUserSelectDisplay(this.presentationUrls)
+        window.navigator.presentation.letUserSelectDisplay(this.presentationUrls)
         .then(D => {
           // 11. - 12.
-          dd.startPresentationConnection(this, D, P);
+          window.navigator.presentation.startPresentationConnection(this, D, P);
           // #TODO does giving P work here? otherwise we would have to use function(resolve, reject) and return something like (self, D, this)
         });
       });
@@ -137,7 +136,7 @@ class PresentationRequest {
     }
     
     let P = new Promise((resolve, reject) => {                          // 2.
-      if (dd.allowed < DiscoveryAllowance.continous) {                  // 4.
+      if (window.navigator.presentation.allowed < DiscoveryAllowance.continous) {                  // 4.
         console.warn("Not possible to monitor available presentation displays.");
         this.getAvailabilityPending = null;
         return reject(new DOMException(DOMException.NOT_SUPPORTED_ERROR));
@@ -148,10 +147,10 @@ class PresentationRequest {
         return resolve(this.presentationDisplayAvailability);           // 5.
       }
       
-      let value = dd.urlsTest(this.presentationUrls);
+      let value = window.navigator.presentation.urlsTest(this.presentationUrls);
       let A = new PresentationAvailability(value);                      // 6.
-      dd.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
-      dd.monitor();                                                     // 8.
+      window.navigator.presentation.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
+      window.navigator.presentation.monitor();                                                     // 8.
       
       this.getAvailabilityPending = null;
       return resolve(A);                                                // 9.
@@ -177,14 +176,14 @@ class PresentationConnectionAvailableEvent extends Event {
   }
 }
 
-/**
- * 6.5
- * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
- * @param {String} id
- * @param {String} url
- * @param {PresentationConnectionState} state
- */
 class PresentationConnection {
+  /**
+   * 6.5
+   * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
+   * @param {String} id
+   * @param {String} url
+   * @param {PresentationConnectionState} state
+   */
   constructor(id, url) {
     implement(this, EventTarget);
     
@@ -192,8 +191,8 @@ class PresentationConnection {
     readOnly(this, "id", id);
     readOnly(this, "url", url);
     readOnly(this, "state", PresentationConnectionState.connecting);
-    //this.implementationReference = null; // custom
     
+    // Control
     this.onconnect = null;
     this.onclose = null;
     this.onterminate = null;
@@ -217,7 +216,7 @@ class PresentationConnection {
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    return dd.connect(this.id, this.url)
+    return window.navigator.presentation.connect(this.id, this.url)
       .then((reference) => {
         // 3.
         //this.implementationReference = reference; // custom
@@ -258,7 +257,7 @@ class PresentationConnection {
       throw new Error("Unsupported message Type in PresentationRequest.send()");
     }
     
-    dd.send(messageType, messageOrData).catch(err => { // 4.
+    window.navigator.presentation.send(messageType, messageOrData).catch(err => { // 4.
       this.close(PresentationConnectionClosedReasons.error, err); // 5.
     });
   }
@@ -291,7 +290,7 @@ class PresentationConnection {
     }
     this.state = PresentationConnectionState.closed;  // 2.
     //this.implementationReference.close(closeReason);  // 3.
-    dd.close(closeReason);
+    window.navigator.presentation.close(closeReason);
     if (closeReason != PresentationClosedReasons.wentaway) {
       // #TODO
       // https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
@@ -309,7 +308,7 @@ class PresentationConnection {
       return; // 1.
     }
     
-    dd.controlledPresentations.forEach(knownConnection => { // 2.
+    window.navigator.presentation.controlledPresentations.forEach(knownConnection => { // 2.
       if (this.id === knownConnection.id && knownConnection.state == PresentationConnectionState.connected) { // 2.1
         // #TODO queue a task to run the following steps
         knownConnection.state = PresentationConnectionState.terminated; // 2.1.1
@@ -413,8 +412,8 @@ class PresentationReceiver {
     // 6.6.1
     // #TODO i dont want to implement https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context :)
     let C = createContext(presentationUrl);
-    if (dd.hostHandler) {
-      dd.hostHandler();
+    if (window.navigator.presentation.hostHandler) {
+      window.navigator.presentation.hostHandler();
     }
   }
   
@@ -454,282 +453,5 @@ class PresentationConnectionList {
     
     this.connections = [];
     this.onconnectionavailable = null;
-  }
-}
-
-// ---  DEV API  ---
-// dd = new DeviceDiscoverer();
-
-/**
- * Custom class that opens the API to the user (dev)
- * 6.4.4 Monitor list of available presentation displays
- * https://w3c.github.io/presentation-api/#dfn-monitor-the-list-of-available-presentation-displays
- */
-class DeviceDiscoverer extends Presentation {
-  constructor() {
-    super();
-    this.monitoring = false;
-    
-    // These shall be set by ._set() during configure(), auto-reject if they are mandatory
-    this.monitorHandler = () => Promise.reject();
-    this.connectHandler = () => Promise.reject();
-    this.sendHandler    = () => Promise.reject();
-    this.receiveHandler = () => Promise.reject();
-    this.hostHandler    = () => Promise.resolve();
-    
-    // https://w3c.github.io/presentation-api/#dfn-set-of-controlled-presentations
-    this.controlledPresentations = [];
-    
-    /**
-     * Technically possible because there was a monitorHandler attached
-     */
-    this.possible = false;
-    
-    /**
-     * Allowed by user
-     */
-    this.allowed = Browser.getDiscoveryAllowance(); // #TODO based on user agent
-    this.SCAN_PERIOD = 10e3;
-    
-    /**
-     * 6.4.1
-     * https://w3c.github.io/presentation-api/#dfn-set-of-availability-objects
-     * [{A: {AvailabilityObject}, urls: [url]}]
-     */
-    this.availabilityObjects = [];
-      
-      
-    /**
-     * 6.4.2
-     * [{availabilityUrl, display}]
-     */
-    this.availablePresentationDisplays = [];
-
-    // "Singleton"
-    dd = this;
-  
-    // Continous Monitoring
-    if (this.allowed == DiscoveryAllowance.continous) {
-      setInterval(this.monitor(), this.SCAN_PERIOD);
-    }
-  }
-  
-  /**
-   * 6.4.4 Monitoring the list of available presentation Displays
-   * theres been a major Rework in https://github.com/w3c/presentation-api/commit/0c800c5c5bee2573735e4b75b117bca77937a0d9
-   * @param {PresentationRequest} pr - #TODO where to get that from
-   * @return {Promise}
-   */
-  monitor(pr) {
-    this.monitoring = true;
-    let availabilitySet = this.availabilityObjects || [];// 1.
-    
-    if (this.pendingSelection && pr.presentationDisplayAvailability === null) { // 2.
-      let A = new PresentationAvailability(value);                                // 2.1
-      availabilitySet.push({A: A, presentationUrls: pr.presentationUrls});        // 2.2
-    }
-    
-    let newDisplays = [];                                 // 3.
-    if (this.possible && this.allowed) {                  // 4.
-      this.monitorHandler().then((displays) => {          // 5.
-        newDisplays = displays;
-        console.log("displays:", displays);
-        console.log("availabilitySet:", availabilitySet);
-        console.log("availabilityObj:", this.availabilityObjects);
-        this.availablePresentationDisplays = [];          // 6.
-        availabilitySet.forEach(availability => {         // 7.
-          let previousAvailability = availability.A.value;  // 7.1
-          let newAvailability = true;                       // 7.2
-          availability.urls.forEach(availabilityUrl => {    // 7.3.
-            newDisplays.forEach(display => {                  // 7.3.1.
-              // #TODO somehow check if display is an available presentation display
-              // For each display in newDisplays, if display is an available presentation display for availabilityUrl, then run the following steps
-              let tuple = {availabilityUrl, display};
-              if (!(this.availablePresentationDisplays.includes(tuple))) {
-                this.availablePresentationDisplays.push(tuple); // 7.3.1.1.
-                console.log("new display detected: ", tuple);
-              }
-              this.monitoring = false;
-              newAvailability = true;                           // 7.3.1.2
-            });
-          });
-        });
-      });
-    } else {
-      this.monitoring = false;
-    }
-  }
-  
-  urlsTest(urls) {
-    return this.availablePresentationDisplays.some(apd => urls.includes(apd.availabilityUrl));
-  }
-  
-  /**
-   * 6.5.2.4
-   * Using an implementation specific mechanism, transmit the contents of messageOrData as the presentation message data and messageType as the presentation message type to the destination browsing context.
-   * @param {PresentationMessageType} presentationMessageType
-   * @param {string|binary} presentationMessageData
-   */
-  send(presentationMessageType, presentationMessageData) {
-    // example: {string: 'Hello, world!', lang: 'en-US'}") from https://w3c.github.io/presentation-api/#passing-locale-information-with-a-message
-    return this.sendHandler(presentationMessageType, presentationMessageData);
-  }
-  
-  /**
-   * 6.3.2. 8-10. https://w3c.github.io/presentation-api/#selecting-a-presentation-display
-   * @param {Array} presentationUrls
-   * @return {Promise}
-   */
-  letUserSelectDisplay(presentationUrls) {
-    this.pendingSelection = true;
-    return this.getUserPermission()
-    .catch(() => {
-      // 10.
-      this.pendingSelection = true;
-      throw new DOMException(DOMException.NOT_ALLOWED_ERROR);
-    })
-    .then(v => {
-       return this.getUserSelectedDisplay(presentationUrls);
-    });
-  }
-  
-  /**
-   * If starting display connection is allowed
-   * @return {Promise}
-   */
-  getUserPermission() {
-    return new Promise((resolve, reject) => {
-      if (this.allowed) {
-        resolve(this.allowed);
-      } else {
-        console.warn("Asking for User Permission not allowed")
-        reject();
-      }
-    });
-  }
-  
-  /**
-   * 6.3.2 9.
-   * Let user select display and return it
-   * @param {Array} presentationUrls
-   * @return {Promise}
-   */
-  getUserSelectedDisplay(presentationUrls) {
-    // #TODO own implementation
-    return new Promise((resolve, reject) => {
-      let empty = this.availablePresentationDisplays.length === 0; // #TODO add check if currently monitoring etc => "stays empty"
-      let couldConnectToAnUrl = this.urlsTest(presentationUrls);
-      //console.log(this.availablePresentationDisplays, presentationUrls);
-      console.log(empty, couldConnectToAnUrl);
-      if (empty || !couldConnectToAnUrl) {
-        reject(new DOMException(DOMException.NOT_FOUND_ERROR));
-      } else {
-        // Ask user which display shall be taken
-        let D = null; // #TODO
-        /*
-        The details of implementing the permission request and display selection are left to the user agent; for example it may show the user a dialog and allow the user to select an available display (granting permission), or cancel the selection (denying permission). Implementers are encouraged to show the user whether an available display is currently in use, to facilitate presentations that can make use of multiple displays.
-        */
-        this.pendingSelection = false;
-        resolve(D);
-      }
-    });
-  }
-  
-  /**
-   * 6.3.4 https://w3c.github.io/presentation-api/#dfn-start-a-presentation-connection
-   * @param {PresentationRequest} presentationRequest
-   * @param {PresentationDisplay} D
-   * @param {Promise} P - gets resolved with new PresentationConnection
-   */
-  startPresentationConnection(presentationRequest, D, P) {
-    // #TODO
-    let pc = new PresentationConnection();
-    this.controlledPresentations.push(pc);
-  }
-  
-  /**
-   * #TODO i dont get how to implement this as js uses reference-count garbage collection which cant be overridden or hooked into
-   * @param {PresentationAvailability} A
-   */
-  gc(A) {
-    this.availabilityObjects = this.availabilityObjects.filter(aO => aO === A);
-    if (this.availabilityObjects.length === 0) {
-      // #TODO cancel any pending task to monitor the list of available presentation displays for power saving purposes, and set the list of available presentation displays to the empty list.
-      // somehow resolve the monitor() promise
-      this.availablePresentationDisplays = [];
-    }
-  }
-  
-  /**
-   * 6.5.1
-   * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
-   */
-  connect(id, url) {
-    return this.connectHandler(id, url)/*.then(success => {
-      if (dd.receiver !== null) {
-        dd.receiver.handleClient(id, url);
-      }
-      return true;
-    })*/;
-  }
-  
-  /**
-   * Notify other party to close the connection
-   * @param {PresentationConnectionClosedReasons} reason
-   */
-  close(reason) {
-    return this.closeHandler(reason);
-  }
-  
-  /**
-   * Configure API
-   * "Implementation-specific" part in spec
-   * @param {ImplementationConfig} ic
-   */
-  configure(ic) {
-    // #HACK faster than looking up proper reflection, ES6 assign doesnt take over methods ¯\_(ツ)_/¯
-    console.log("loaded Implementation: " + ic.name);
-    ["monitor", "connect", "send", "receive", "close", "host"].forEach(h => {
-      let handler = h + "Handler";
-      this._set(handler, ic[handler]);
-    });
-  }
-  
-  /**
-   * That's how the DeviceDiscovery shall work
-   * @param {Function<Promise>} handlerFct
-   */
-  _set(handlerName, handlerFct) {
-    /*if (!(handlerFct && handlerFct.then)) {
-      console.log(handlerName, handlerFct, handlerFct.then)
-      throw new DOMException(DOMException.TYPE_ERROR);
-    }*/
-    this[handlerName] = handlerFct;
-    if (handlerName === "connectHandler") {
-      this.possible = true;
-    }
-  }
-}
-
-class ImplementationConfig {
-  /**
-   * @param {String }           name - human readable name
-   * @param {Promise} monitorHandler - how do you seek out for new displays,
-   * @param {Promise} connectHandler - connect to them,
-   * @param {Promise}    sendHandler - send messages to them,
-   * @param {Promise} receiveHandler - receive messages
-   * @param {Promise}   closeHandler - notify them to close connection
-   *
-   * @param {Promise}    hostHandler - optional, what happens if you instantiate a new receiver (tell some server maybe?)
-   *
-   */
-  constructor(name, monitorHandler, connectHandler, sendHandler, receiveHandler, closeHandler, hostHandler) {
-    this.name           = name;
-    this.monitorHandler = monitorHandler;
-    this.connectHandler = connectHandler;
-    this.sendHandler    =    sendHandler;
-    this.receiveHandler = receiveHandler;
-    this.closeHandler   =   closeHandler;
-    this.hostHandler    =    hostHandler;
   }
 }
