@@ -1,0 +1,17 @@
+extends layout.pug
+
+block js
+  script(src="client_fullServer.js")
+  script.
+    ready(() => {
+      $("#join").addEventListener("click", () => {
+        let req = new PresentationRequest($("#url").value);
+        req.getAvailability().then(a => {
+          console.log("availability: ", a);
+          req.start();
+        });
+      });
+    });
+block content
+  input#url(type="text")
+  button#join Join

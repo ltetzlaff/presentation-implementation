@@ -1,0 +1,12 @@
+extends layout.pug
+
+block js
+  script(src="client_fullServer.js")
+  script.
+    ready(() => {
+      $("#host").addEventListener("click", () => {
+        window.navigator.presentation.receiver = new PresentationReceiver(demoDisplays[0], "demoPage", demoDisplays[0].id);
+      });
+    });
+block content
+  button#host Host
