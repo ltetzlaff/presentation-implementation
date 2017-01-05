@@ -5,6 +5,9 @@ function $ (selector, el) {
  return el.querySelector(selector);
 }
 
+/**
+ * $ for multiple retrievals
+ */
 function $$ (selector, el) {
  if (!el) {el = document;}
  return el.querySelectorAll(selector);
@@ -13,6 +16,9 @@ function $$ (selector, el) {
  // return Array.prototype.slice.call(el.querySelectorAll(selector));
 }
 
+/**
+ * document.ready
+ */
 function ready(fn) {
   if (document.readyState != 'loading'){
     fn();
@@ -51,16 +57,26 @@ function ajax(method, url, data) {
   });
 }
 
-
+/**
+ * WebIDL states interfaces but js doesnt have an implement function x)
+ * @param {Object} instance
+ * @param {Interface} I
+ */
 function implement(instance, I) {
   for (let prop in I) {
     instance[prop] = I[prop];
   }
 }
 
-
+/**
+ * Overwrite dest and give it source's properties (assign doesnt take functions)
+ * @param {Object} dest
+ * @param {Object} source
+ * @param {boolean} isDeep - do a deep copy or not 
+ */
 function copy(dest, source, isDeep) {
   if (isDeep) {
+    // #TODO implement this if we need it at some point
     throw new NotImplementedException();
   } else {
     // http://www.2ality.com/2014/01/object-assign.html
@@ -105,7 +121,10 @@ const DiscoveryAllowance = {none: 0, manual: 1, continous: 2};
 
 class Browser {
   /**
-   * #TODO
+   * Have a local setting for the discoveryAllowance of the user,
+   * might be in local storage?
+   * #TODO implement saving this there
+   * #TODO implement asking the user for it (widget component)
    */
   static getDiscoveryAllowance() {
     return DiscoveryAllowance.continous;
@@ -113,16 +132,14 @@ class Browser {
   
   
   /**
-   * https://www.w3.org/TR/html5/browsers.html#allowed-to-show-a-popup
-   * #TODO
+   * #TODO https://www.w3.org/TR/html5/browsers.html#allowed-to-show-a-popup
    */
   static allowedToShowPopup(context) {
     return true;
   }
   
   /**
-   * #TODO
-   * https://w3c.github.io/webappsec-mixed-content/#categorize-settings-object
+   * #TODO https://w3c.github.io/webappsec-mixed-content/#categorize-settings-object
    * @return {boolean}
    */
   static prohibitsMixedSecurityContents() {
@@ -130,6 +147,9 @@ class Browser {
     return true;
   }
   
+  /**
+   * Combines some of the other functions in this class
+   */
   static isMixedContentMismatch(presentationUrls) {
     let mixedSecButUnauth = Browser.prohibitsMixedSecurityContents() && presentationUrls.some(u => Browser.isAPrioriUnauthenticatedURL(u)); // 2.-4.
     if (mixedSecButUnauth || Browser.isSandboxedPresentation()) {
@@ -138,8 +158,7 @@ class Browser {
   }
   
   /**
-   * #TODO
-   * https://w3c.github.io/presentation-api/#dfn-a-priori-unauthenticated-url
+   * #TODO https://w3c.github.io/presentation-api/#dfn-a-priori-unauthenticated-url
    * @return {boolean}
    */
   static isAPrioriUnauthenticatedURL(url) {
@@ -158,6 +177,7 @@ class Browser {
   }
   
   /**
+   * Retrieve Sandboxing Flag for doc || document
    * @param {document} doc - optional
    */
   static isSandboxedPresentation(doc) {
