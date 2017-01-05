@@ -64,6 +64,10 @@ router.post("/host", (req, res) => {
   res.send("OK");
 });
 
+router.get("/monitor", (req, res) => {
+  res.send(receivers);
+});
+
 e.use('/', router);
 
 // ---   ERRORS   ---

@@ -3,7 +3,8 @@ let demoRoomName = "Demo Room";
 
 // server-"guided" handshake + data exchange
 let monitor = () => {
-  return Promise.resolve(demoDisplays);
+  //return Promise.resolve(demoDisplays);
+  return ajax("get", server + "/monitor").then(receivers => receivers);
 };
 
 /*
@@ -39,8 +40,6 @@ let host = () => {
 };
 
 
-let config = new ImplementationConfig("node socketio", {
-  monitor, displaySelect, connect, send, receive, close, host
-});
+let config = new ImplementationConfig("node socketio", monitor, displaySelect, connect, send, receive, close, host);
 window.navigator.presentation = new Presentator();
 window.navigator.presentation.configure(config);
