@@ -248,25 +248,24 @@ class Presentator extends Presentation {
 
 class ImplementationConfig {
   /**
-   * @param {String }           name - human readable name
-   * @param {Promise} monitorHandler - how do you seek out for new displays,
-   * @param {Promise} dispSelHandler - select them,
-   * @param {Promise} connectHandler - connect to them,
-   * @param {Promise}    sendHandler - send messages to them,
-   * @param {Promise} receiveHandler - receive messages
-   * @param {Promise}   closeHandler - notify them to close connection
+   * @param {String}  name          - human readable name
+   * @param {Promise} monitor       - how do you seek out for new displays,
+   * @param {Promise} selectDisplay - select them,
+   * @param {Promise} connect       - connect to them,
+   * @param {Promise} send          - send messages to them,
+   * @param {Promise} receive       - receive messages
+   * @param {Promise} close         - notify them to close connection
    *
-   * @param {Promise}    hostHandler - optional, what happens if you instantiate a new receiver (tell some server maybe?)
-   *
+   * @param {Promise} host          - optional, what happens if you instantiate a new receiver (tell some server maybe?)
    */
-  constructor(name, monitorHandler, dispSelHandler, connectHandler, sendHandler, receiveHandler, closeHandler, hostHandler) {
+  constructor(name, handlers) {
     this.name                 = name;
-    this.monitorHandler       = monitorHandler;
-    this.displaySelectHandler = dispSelHandler;
-    this.connectHandler       = connectHandler;
-    this.sendHandler          =    sendHandler;
-    this.receiveHandler       = receiveHandler;
-    this.closeHandler         =   closeHandler;
-    this.hostHandler          =    hostHandler;
+    this.monitorHandler       = handlers.monitor;
+    this.displaySelectHandler = handlers.selectDisplay;
+    this.connectHandler       = handlers.connect;
+    this.sendHandler          = handlers.send;
+    this.receiveHandler       = handlers.receive;
+    this.closeHandler         = handlers.close;
+    this.hostHandler          = handlers.host;
   }
 }

@@ -406,14 +406,13 @@ class PresentationReceiver {
         // 3.
         return this.controllersPromise;
       }
-      return resolve();
     });
     
     // 6.6.1
     // #TODO i dont want to implement https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context :)
     let C = createContext(presentationUrl);
     if (window.navigator.presentation.hostHandler) {
-      window.navigator.presentation.hostHandler();
+      window.navigator.presentation.hostHandler(this.presentationId, presentationUrl);
     }
   }
   
