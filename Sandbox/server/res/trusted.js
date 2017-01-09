@@ -77,7 +77,7 @@ class Presentator extends Presentation {
         this.availablePresentationDisplays = [];          // 6.
         availabilitySet.forEach(availability => {         // 7.
           let previousAvailability = availability.A.value;  // 7.1
-          let newAvailability = true;                       // 7.2
+          let newAvailability = false;                      // 7.2
           availability.urls.forEach(availabilityUrl => {    // 7.3.
             newDisplays.forEach(display => {                  // 7.3.1.
               // #TODO somehow check if display is an available presentation display
