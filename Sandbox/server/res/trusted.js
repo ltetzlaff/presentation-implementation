@@ -63,7 +63,7 @@ class Presentator extends Presentation {
     let availabilitySet = this.availabilityObjects || [];// 1.
     
     if (this.pendingSelection && pr.presentationDisplayAvailability === null) { // 2.
-      let A = new PresentationAvailability(value);                                // 2.1
+      let A = new PresentationAvailability();                                // 2.1
       availabilitySet.push({A: A, presentationUrls: pr.presentationUrls});        // 2.2
     }
     
@@ -89,6 +89,10 @@ class Presentator extends Presentation {
               }
               this.monitoring = false;
               newAvailability = true;                           // 7.3.1.2
+
+              // #TODO 7.4 and 7.5
+              // https://w3c.github.io/presentation-api/#monitoring-the-list-of-available-presentation-displays
+
             });
           });
         });
