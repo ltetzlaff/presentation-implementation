@@ -25,7 +25,12 @@ class Presentation {
  */
 class PresentationAvailability {
   constructor(value) {
-    this.value = value; // <-- must only be set by https://w3c.github.io/presentation-api/#interface-presentationavailability #TODO
+    if (value !== undefined) {
+      this.value = value; // <-- must only be set by, https://w3c.github.io/presentation-api/#interface-presentationavailability #TODO
+    } else {
+      this.value = false;
+    }
+     
     this.onchange = null;
     
     implement(this, EventTarget);
@@ -83,7 +88,7 @@ class PresentationRequest {
       let P = new Promise((resolve, reject) => {
         // 7.
         if (!window.navigator.presentation.monitoring) {
-          window.navigator.presentation.monitor();
+          window.navigator.presentation.monitor(this);
         }
         
         // 8.
