@@ -43,7 +43,7 @@ class Presentator extends Presentation {
 
     // Continous Monitoring
     if (this.allowed == DiscoveryAllowance.continous) {
-      setInterval(this.monitor(), this.SCAN_PERIOD);
+      setInterval(this.monitor(this.defaultRequest), this.SCAN_PERIOD);
     }
     
     /**
@@ -55,7 +55,7 @@ class Presentator extends Presentation {
   /**
    * 6.4.4 Monitoring the list of available presentation Displays
    * theres been a major Rework in https://github.com/w3c/presentation-api/commit/0c800c5c5bee2573735e4b75b117bca77937a0d9
-   * @param {PresentationRequest} pr - #TODO where to get that from
+   * @param {PresentationRequest} pr
    * @return {Promise}
    */
   monitor(pr) {
@@ -64,7 +64,7 @@ class Presentator extends Presentation {
     
     if (this.pendingSelection && pr.presentationDisplayAvailability === null) { // 2.
       let A = new PresentationAvailability();                                // 2.1
-      availabilitySet.push({A: A, presentationUrls: pr.presentationUrls});        // 2.2
+      availabilitySet.push({A: A, urls: pr.presentationUrls});        // 2.2
     }
     
     let newDisplays = [];                                 // 3.
@@ -75,15 +75,17 @@ class Presentator extends Presentation {
         console.log("availabilitySet:", availabilitySet);
         console.log("availabilityObj:", this.availabilityObjects);*/
         this.availablePresentationDisplays = [];          // 6.
+//        console.log(availabilitySet);
         availabilitySet.forEach(availability => {         // 7.
           let previousAvailability = availability.A.value;  // 7.1
           let newAvailability = false;                      // 7.2
+//          console.log(availability);
           availability.urls.forEach(availabilityUrl => {    // 7.3.
             newDisplays.forEach(display => {                  // 7.3.1.
               // #TODO somehow check if display is an available presentation display
               // For each display in newDisplays, if display is an available presentation display for availabilityUrl, then run the following steps
               let tuple = {availabilityUrl, display};
-              if (!(this.availablePresentationDisplays.includes(tuple))) {
+              if (!includes(this.availablePresentationDisplays, tuple)) {
                 this.availablePresentationDisplays.push(tuple); // 7.3.1.1.
                 console.log("new display detected: ", tuple);
               }
@@ -103,7 +105,11 @@ class Presentator extends Presentation {
   }
   
   urlsTest(urls) {
-    return this.availablePresentationDisplays.some(apd => urls.includes(apd.availabilityUrl));
+    //return this.availablePresentationDisplays.some(apd => includes(urls, apd.availabilityUrl));
+    return this.availablePresentationDisplays.some(apd => {
+      // for at least 1 availablePresentationDisplay out of the given urls at least 1 matches
+      return urls.some(url => url.href === apd.availabilityUrl.href);
+    });
   }
   
   /**
@@ -157,12 +163,10 @@ class Presentator extends Presentation {
    * @return {Promise}
    */
   getUserSelectedDisplay(presentationUrls) {
-    // #TODO own implementation
     return new Promise((resolve, reject) => {
       let empty = this.availablePresentationDisplays.length === 0; // #TODO add check if currently monitoring etc => "stays empty"
       let couldConnectToAnUrl = this.urlsTest(presentationUrls);
-      //console.log(this.availablePresentationDisplays, presentationUrls);
-      console.log(empty, couldConnectToAnUrl);
+      console.log(this.availablePresentationDisplays, presentationUrls);
       if (empty || !couldConnectToAnUrl) {
         reject(new DOMException(DOMException.NOT_FOUND_ERROR));
       } else {

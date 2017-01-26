@@ -36,7 +36,15 @@ function ajax(method, url, data) {
     r.onload = function() {
       if (this.status >= 200 && this.status < 400) {
         // Success
-        resolve(this.response);
+        let result = "";
+        try {
+          result = JSON.parse(this.response);
+        } catch (e) {
+          console.warn(e);
+          result = this.response;
+        } finally {
+          resolve(result);
+        }
       } else {
         console.warn(this.status + "-Error on " + method + " to " + url);
         reject(this.status);
@@ -100,6 +108,25 @@ function makeGetter(to, propName, propValue) {
  */
 function readOnly(to, propName, propValue) {
   Object.defineProperty(to, propName, {value: propValue, writable: false});
+}
+
+/**
+ * Array.prototype.includes doesn't check for deep equality,
+ * whereas this one does.
+ * @param {Array} haystack
+ * @param {Object} needle
+ */
+function includes(haystack, needle) {
+  return haystack.some(n => eq(n, needle));
+}
+
+// http://stackoverflow.com/questions/201183/how-to-determine-equality-for-two-javascript-objects#comment61401243_32922084
+function eq(x, y) {
+  return (x && y && typeof x === 'object' && typeof y === 'object') ?
+    (Object.keys(x).length === Object.keys(y).length) &&
+      Object.keys(x).every(function(key) {
+        return eq(x[key], y[key]);
+      }, true) : (x === y);
 }
 
 /**

@@ -1,6 +1,6 @@
 let demoDisplays = [{id: "Display One", technology: "HDMI"}, {id: "Wireless Display", technology: "Chromecast"}];
 let demoRoomName = "Demo Room";
-
+let server = "";
 /*
  The details of implementing the permission request and display selection are left to the user agent;
  for example it may show the user a dialog and allow the user to select an available display (granting permission),
@@ -9,7 +9,10 @@ let demoRoomName = "Demo Room";
  Implementers are encouraged to show the user whether an available display is currently in use,
  to facilitate presentations that can make use of multiple displays.
 */
-let displaySelectUI = () => Promise.reject(); // #TODO
+let displaySelectUI = () => {
+  createContext("");
+  // #TODO
+}; 
 
 const solutions = {
   mockup: {
@@ -23,7 +26,7 @@ const solutions = {
   },
   ajax: {
     monitor         :  () => ajax("get", server + "/monitor"),
-    selectDisplay   :  () => Promise.reject(),
+    selectDisplay   :  () => displaySelectUI,
     connect         :  () => ajax(server + "/join"), // #TODO
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
