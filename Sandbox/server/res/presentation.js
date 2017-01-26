@@ -94,6 +94,7 @@ class PresentationRequest {
         // 8.
         window.navigator.presentation.letUserSelectDisplay(this.presentationUrls)
         .then(D => {
+          console.log("here?", D);
           // 11. - 12.
           window.navigator.presentation.startPresentationConnection(this, D, P);
           // #TODO does giving P work here? otherwise we would have to use function(resolve, reject) and return something like (self, D, this)
@@ -135,13 +136,12 @@ class PresentationRequest {
    * @return {Promise<PresentationAvailability>}
    */
   getAvailability() {
-    // 1.
     if (this.getAvailabilityPending !== null) {
-      return this.getAvailabilityPending;
+      return this.getAvailabilityPending;                      // 1.
     }
     
-    let P = new Promise((resolve, reject) => {                          // 2.
-      if (window.navigator.presentation.allowed < DiscoveryAllowance.continous) {                  // 4.
+    let P = new Promise((resolve, reject) => {                 // 2.
+      if (window.navigator.presentation.allowed < DiscoveryAllowance.continous) { // 4.
         console.warn("Not possible to monitor available presentation displays.");
         this.getAvailabilityPending = null;
         return reject(new DOMException(DOMException.NOT_SUPPORTED_ERROR));
@@ -149,20 +149,20 @@ class PresentationRequest {
       
       if (this.presentationDisplayAvailability !== null) {
         this.getAvailabilityPending = null;
-        return resolve(this.presentationDisplayAvailability);           // 5.
+        return resolve(this.presentationDisplayAvailability);  // 5.
       }
       
-      let value = window.navigator.presentation.urlsTest(this.presentationUrls);
-      let A = new PresentationAvailability(value);                      // 6.
+      this.presentationDisplayAvailability = new PresentationAvailability();
+      let A = this.presentationDisplayAvailability;            // 6.
       window.navigator.presentation.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
-      window.navigator.presentation.monitor();                                                     // 8.
+      window.navigator.presentation.monitor(this);                                                     // 8.
       
       this.getAvailabilityPending = null;
-      return resolve(A);                                                // 9.
+      return resolve(A);                                       // 9.
     });
     
     this.getAvailabilityPending = P;
-    return P;                                                           // 3.
+    return P;                                                  // 3.
   }
 }
 

@@ -8,7 +8,7 @@ block js
         let req = new PresentationRequest($("#url").value);
         req.getAvailability().then(a => {
           console.log("availability: ", a);
-          req.start();
+          req.start().catch(e => console.log(e));
         });
       });
     });
