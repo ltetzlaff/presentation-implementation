@@ -94,7 +94,6 @@ class PresentationRequest {
         // 8.
         window.navigator.presentation.letUserSelectDisplay(this.presentationUrls)
         .then(D => {
-          console.log("here?", D);
           // 11. - 12.
           window.navigator.presentation.startPresentationConnection(this, D, P);
           // #TODO does giving P work here? otherwise we would have to use function(resolve, reject) and return something like (self, D, this)

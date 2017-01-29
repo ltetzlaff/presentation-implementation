@@ -1,23 +1,44 @@
 let demoDisplays = [{id: "Display One", technology: "HDMI"}, {id: "Wireless Display", technology: "Chromecast"}];
 let demoRoomName = "Demo Room";
 let server = "";
+
 /*
- The details of implementing the permission request and display selection are left to the user agent;
- for example it may show the user a dialog and allow the user to select an available display (granting permission),
- or cancel the selection (denying permission).
- 
- Implementers are encouraged to show the user whether an available display is currently in use,
+ #TODO cancel the selection (denying permission).
+ #TODO show the user whether an available display is currently in use,
  to facilitate presentations that can make use of multiple displays.
 */
-let displaySelectUI = () => {
-  createContext("");
-  // #TODO
+let selectDisplayUI = (displays) => {
+  return new Promise((resolve, reject) => {
+    // Load + Reference iframe
+    let picker = createContext("/selectDisplay.html");
+    
+    // Communication from iframe (get selected display)
+    window.addEventListener("message", function (e) {
+      if (e.source === picker.contentWindow) {
+        window.removeEventListener("message", this);
+        picker.remove();
+
+        let selectedId = e.data;
+        let selectedDisplay = displays.find(d => d.display.id === selectedId);
+        resolve(selectedDisplay);
+      }
+    });
+    
+    // Communication to iframe (send displays to choose from)
+    picker.onload = () => {
+      let displayIds = [];
+      displays.forEach(apd => {
+        displayIds.push(apd.display.id);
+      });
+      picker.contentWindow.postMessage(displayIds, "*");  
+    }
+  });
 }; 
 
 const solutions = {
   mockup: {
     monitor         :  () => Promise.resolve(demoDisplays),
-    selectDisplay   :  () => Promise.resolve(demoDisplays[0]),
+    selectDisplay   :  (displays) => Promise.resolve(demoDisplays[0]),
     connect         :  () => Promise.resolve(true),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
@@ -26,7 +47,7 @@ const solutions = {
   },
   ajax: {
     monitor         :  () => ajax("get", server + "/monitor"),
-    selectDisplay   :  () => displaySelectUI,
+    selectDisplay   :  (displays) => selectDisplayUI(displays),
     connect         :  () => ajax(server + "/join"), // #TODO
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
@@ -39,7 +60,7 @@ const solutions = {
   },
   socketio: {
     monitor         :  () => Promise.reject(),
-    selectDisplay   :  () => Promise.reject(),
+    selectDisplay   :  (displays) => Promise.reject(),
     connect         :  () => Promise.reject(),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
@@ -48,7 +69,7 @@ const solutions = {
   },
   local: {
     monitor         :  () => Promise.reject(),
-    selectDisplay   :  () => Promise.reject(),
+    selectDisplay   :  (displays) => Promise.reject(),
     connect         :  () => Promise.reject(),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
@@ -57,7 +78,7 @@ const solutions = {
   },
   extension: {
     monitor         :  () => Promise.reject(),
-    selectDisplay   :  () => Promise.reject(),
+    selectDisplay   :  (displays) => Promise.reject(),
     connect         :  () => Promise.reject(),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),

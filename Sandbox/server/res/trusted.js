@@ -71,8 +71,8 @@ class Presentator extends Presentation {
     if (this.possible && this.allowed) {                  // 4.
       this.monitorHandler().then((displays) => {          // 5.
         newDisplays = displays;
-        /*console.log("displays:", displays);
-        console.log("availabilitySet:", availabilitySet);
+//        console.log("displays:", displays);
+        /*console.log("availabilitySet:", availabilitySet);
         console.log("availabilityObj:", this.availabilityObjects);*/
         this.availablePresentationDisplays = [];          // 6.
 //        console.log(availabilitySet);
@@ -166,13 +166,14 @@ class Presentator extends Presentation {
     return new Promise((resolve, reject) => {
       let empty = this.availablePresentationDisplays.length === 0; // #TODO add check if currently monitoring etc => "stays empty"
       let couldConnectToAnUrl = this.urlsTest(presentationUrls);
-      console.log(this.availablePresentationDisplays, presentationUrls);
+//      console.log(this.availablePresentationDisplays, presentationUrls);
       if (empty || !couldConnectToAnUrl) {
         reject(new DOMException(DOMException.NOT_FOUND_ERROR));
       } else {
         // Ask user which display shall be taken
-        let D = this.displaySelectHandler();
+        let D = this.selectDisplayHandler(this.availablePresentationDisplays);
         this.pendingSelection = false;
+        console.log(D);
         resolve(D);
       }
     });
@@ -185,9 +186,31 @@ class Presentator extends Presentation {
    * @param {Promise} P - gets resolved with new PresentationConnection
    */
   startPresentationConnection(presentationRequest, D, P) {
-    // #TODO
-    let pc = new PresentationConnection();
-    this.controlledPresentations.push(pc);
+    console.log("starting Connection to: ", D);
+    let I = guid(); // 1. #TODO check for collision if this goes into production
+    let presentationUrls = presentationRequest.presentationUrls; // 4.
+    let pUrl = "";
+
+    // 5.
+    presentationUrls.some(presentationUrl => {
+      if (this.availablePresentationDisplays.find(apd => apd.presentationUrl === presentationUrl)) {
+        pUrl = presentationUrl.toString(); // #TODO check if toString is appropriate
+        return true;
+      }
+    });
+    
+    let S = new PresentationConnection(I, pUrl); // 2., 3., 6.
+    this.controlledPresentations.push(pc); // 7.
+    if (P) {
+      P.resolve(S); // 8.
+    }
+
+    // 9. #TODO trusted event
+    // Queue a task to fire a trusted event with the name connectionavailable, that uses the PresentationConnectionAvailableEvent interface, with the connection attribute initialized to S, at presentationRequest. The event must not bubble, must not be cancelable, and has no default action.
+
+    // 10.
+
+    S.establish(); // 13.
   }
   
   /**
@@ -232,7 +255,7 @@ class Presentator extends Presentation {
   configure(ic) {
     console.log("loaded Implementation: " + ic.name);
     // #HACK faster than looking up proper reflection, ES6 assign doesnt take over methods ¯\_(ツ)_/¯
-    ["monitor", "displaySelect", "connect", "send", "receive", "close", "host"].forEach(h => {
+    ["monitor", "selectDisplay", "connect", "send", "receive", "close", "host"].forEach(h => {
       let handler = h + "Handler";
       this._set(handler, ic[handler]);
     });
@@ -269,7 +292,7 @@ class ImplementationConfig {
   constructor(name, handlers) {
     this.name                 = name;
     this.monitorHandler       = handlers.monitor;
-    this.displaySelectHandler = handlers.selectDisplay;
+    this.selectDisplayHandler = handlers.selectDisplay;
     this.connectHandler       = handlers.connect;
     this.sendHandler          = handlers.send;
     this.receiveHandler       = handlers.receive;
