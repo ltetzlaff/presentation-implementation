@@ -13,8 +13,7 @@ class Monitor {
   constructor(name, id) {
     this.id = id;
     this.name = name;
-    this.limit = false;
-    this.connected = [];    
+    this.limit = false; 
      /**
      * Get all monitors
      * @return returns all connected monitors
@@ -35,7 +34,7 @@ class Monitor {
           name: this.name,
           limit: this.limit,
           };
-    }; 
+    };      
   }
 };
 module.exports = Monitor;
