@@ -17,8 +17,11 @@ class MonitorCollection {
     if(config.util.getEnv('NODE_ENV') == 'test') {
       this.monitors.push(new Monitor("conferenz", 123));
     }
+    this.messageBus = null;
     
     // Just for testing one monitor
+
+    this.setMessageBus = bus => this.messageBus = bus;
     
     /**
      * Get all monitors
