@@ -16,6 +16,16 @@ function $$ (selector, el) {
  // return Array.prototype.slice.call(el.querySelectorAll(selector));
 }
 
+function guid() {
+  function s4() {
+    return Math.floor((1 + Math.random()) * 0x10000)
+      .toString(16)
+      .substring(1);
+  }
+  return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
+    s4() + '-' + s4() + s4() + s4();
+}
+
 /**
  * document.ready
  */
@@ -138,6 +148,7 @@ function createContext(url) {
   let ifrm = document.createElement("iframe");
   // scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0">
   ifrm.setAttribute("src", url);
+  ifrm.setAttribute("sandbox", "allow-scripts");
   ifrm.style.width = "100%";
   ifrm.style.height = "100%";
   document.body.appendChild(ifrm);

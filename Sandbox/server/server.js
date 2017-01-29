@@ -24,6 +24,11 @@ e.use(express.static(path.join(__dirname, 'res')));
 
 // ---   LOGIC    ---
 class Receiver {
+  constructor(id, url) {
+    this.id = id;
+    this.url = url;
+  }
+
   notify(type, msg) {
     // #TODO handle via sth like socketio
   }
