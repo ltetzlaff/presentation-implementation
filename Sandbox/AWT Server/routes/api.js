@@ -89,8 +89,8 @@ let longpooling = (req, res, listener) => {
   addMessageListener(res);
   setTimeout(function () {
     messageBus.removeListener(listener + req.params.id, listenerFun);
-    res.status(200).end("Timeout");
-  }, 20000);
+    res.status(200).end("Timeout at: " + new Date().toLocaleTimeString());
+  }, 5000);
 };
 
 

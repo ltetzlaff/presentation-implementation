@@ -5,6 +5,95 @@
     <title>My test page</title>
   </head>
   <body>
-    Meine Testseite
+    <button type="button" onclick="testFunction()">Test</button>
+    <p id="test"></p>
+    <p id="message"></p>
+
+    <script>
+
+
+    function testFunction(){
+      ajaxLong("/api/controller/message/1234", null, 'build', null)
+      
+      /*.then((data) => {
+        document.getElementById("test").innerHTML = data});
+        */
+    }
+
+    document.addEventListener('build', function (e) { 
+      document.getElementById("message").innerHTML = e.detail; 
+    }, false);
+
+    function longpollingtest(){
+      
+
+      var xhr = new XMLHttpRequest();
+      xhr.responseType = 'text';//or 'text', 'json', ect. there are other types. 
+      xhr.timeout = 60000;//milliseconds until timeout fires. (1 minute)
+      xhr.onload = function(e2){
+        var blob = xhr.response;
+        document.getElementById("test").innerHTML = blob;
+
+        //handle response data
+      }
+      xhr.ontimeout = function(){
+        //if you get this you probably should try to make the connection again.
+        //the browser should've killed the connection. 
+      }
+      xhr.open('GET', "/api/controller/message/1234", true);
+      xhr.send();
+
+    }
+
+    function ajax(method, url, data) {
+      method = method.toUpperCase();
+      return new Promise((resolve, reject) => {
+        let r = new XMLHttpRequest();
+        r.timeout = 60000;
+        r.open(method, url, true);
+        
+        r.onload = function() {
+          if (this.status >= 200 && this.status < 400) {
+            // Success
+            let result = "";
+            try {
+              result = JSON.parse(this.response);
+            } catch (e) {
+              console.warn(e);
+              result = this.response;
+            } finally {
+              resolve(result);
+            }
+          } else {
+            console.warn(this.status + "-Error on " + method + " to " + url);
+            reject(this.status);
+          }
+        };
+        
+        r.onerror = () => {
+          console.warn("Couldn't " + method + " to " + url);
+          reject(404);
+        }
+        
+        if (method === "POST") {
+          r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+          r.send(JSON.stringify(data));
+        } else {
+          r.send();
+        }
+      });
+    }
+
+    function ajaxLong(url, initData, eventName,onStop){
+      let runing = true;      
+      ajax('GET', url, initData).then((message) => {
+        
+        let event = new CustomEvent('build', { 'detail': message });
+        document.dispatchEvent(event);
+        ajaxLong(url, initData);
+      });
+    }
+
+</script>
   </body>
 </html>
