@@ -24,6 +24,7 @@ if(config.util.getEnv('NODE_ENV') !== 'test') {
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.set('view engine', 'html');
 app.use('/', express.static(__dirname + '/../client/'));
 
 app.use('/api', api);
