@@ -1,6 +1,7 @@
 let demoDisplays = [{id: "Display One", technology: "HDMI"}, {id: "Wireless Display", technology: "Chromecast"}];
 let demoRoomName = "Demo Room";
 let server = "";
+let CLIENT_NAME = "John Doe";
 
 /*
  #TODO cancel the selection (denying permission).
@@ -39,7 +40,8 @@ const solutions = {
   mockup: {
     monitor         :  () => Promise.resolve(demoDisplays),
     selectDisplay   :  (displays) => Promise.resolve(demoDisplays[0]),
-    connect         :  () => Promise.resolve(true),
+    createContext   :  () => Promise.reject(),
+    connect         :  (id, url) => Promise.resolve(true),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
     close           :  (reason) => Promise.reject(),
@@ -48,20 +50,22 @@ const solutions = {
   ajax: {
     monitor         :  () => ajax("get", server + "/monitor"),
     selectDisplay   :  (displays) => selectDisplayUI(displays),
-    connect         :  () => ajax(server + "/join"), // #TODO
+    createContext   :  () => ajax("get", server + "/prepareRoom"),
+    connect         :  (id, url) => ajax("post", server + "/join", {id: id, url: url, name: CLIENT_NAME}), // #TODO
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
     close           :  (reason) => Promise.reject(),
     host            :  (receiverId, receiverUrl) => {
       // Register Host on Server
-      return ajax("post", "/host", {id: receiverId, url: ""}); 
+      return ajax("post", server + "/host", {id: receiverId, url: ""}); 
       // because this implementation only relies on the server there is no need for more than one unique identifier
     }
   },
   socketio: {
     monitor         :  () => Promise.reject(),
     selectDisplay   :  (displays) => Promise.reject(),
-    connect         :  () => Promise.reject(),
+    createContext   :  () => Promise.reject(),
+    connect         :  (id, url) => Promise.reject(),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
     close           :  (reason) => Promise.reject(),
@@ -70,7 +74,8 @@ const solutions = {
   local: {
     monitor         :  () => Promise.reject(),
     selectDisplay   :  (displays) => Promise.reject(),
-    connect         :  () => Promise.reject(),
+    createContext   :  () => Promise.reject(),
+    connect         :  (id, url) => Promise.reject(),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
     close           :  (reason) => Promise.reject(),
@@ -79,7 +84,8 @@ const solutions = {
   extension: {
     monitor         :  () => Promise.reject(),
     selectDisplay   :  (displays) => Promise.reject(),
-    connect         :  () => Promise.reject(),
+    createContext   :  () => Promise.reject(),
+    connect         :  (id, url) => Promise.reject(),
     send            :  () => Promise.reject(),
     receive         :  (type, data) => Promise.reject(),
     close           :  (reason) => Promise.reject(),
@@ -91,6 +97,7 @@ window.navigator.presentation = new Presentator();
 let config = new ImplementationConfig("node socketio", {
   monitor         :  solutions.ajax.monitor,
   selectDisplay   :  solutions.ajax.selectDisplay,
+  createContext   :  solutions.ajax.createContext,
   connect         :  solutions.ajax.connect,
   send            :  solutions.ajax.send,
   receive         :  solutions.ajax.receive,

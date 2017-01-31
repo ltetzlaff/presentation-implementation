@@ -12,11 +12,17 @@ class Presentator extends Presentation {
     this.monitoring = false;
     
     // These shall be set by ._set() during configure(), auto-reject if they are mandatory
-    this.monitorHandler = () => Promise.reject();
-    this.connectHandler = () => Promise.reject();
-    this.sendHandler    = () => Promise.reject();
-    this.receiveHandler = () => Promise.reject();
-    this.hostHandler    = () => Promise.resolve();
+    ImplementationConfig.Handlers().forEach(h => {
+      let handler = h + "Handler";
+      switch (h) {
+        case "host":
+          this[handler] = () => Promise.resolve();
+          break;
+        default:
+          this[handler] = () => Promise.reject();
+          break;
+      }
+    });
     
     // https://w3c.github.io/presentation-api/#dfn-set-of-controlled-presentations
     this.controlledPresentations = [];
@@ -200,19 +206,28 @@ class Presentator extends Presentation {
     });
     
     let S = new PresentationConnection(I, pUrl); // 2., 3., 6.
-    this.controlledPresentations.push(pc); // 7.
-    if (P) {
-      P.resolve(S); // 8.
-    }
+    this.controlledPresentations.push(S); // 7.
+    
+    // 8. (see comment below)
+    //P.resolve(S); // this syntax is not supported so i wrapped the call to this function in a resolve and just return something to resolve to at the end of this
+    
 
     // 9. #TODO trusted event
     // Queue a task to fire a trusted event with the name connectionavailable, that uses the PresentationConnectionAvailableEvent interface, with the connection attribute initialized to S, at presentationRequest. The event must not bubble, must not be cancelable, and has no default action.
 
-    // 10.
+    // 10.+ 12.
+    this.createContextHandler()
+    .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
+    .then (() => S.establish()); /* 13. */
+    
+    // 8.
+    if (P) {
+      return S;
+    } else {
+      return false;
+    }
+  }  
 
-    S.establish(); // 13.
-  }
-  
   /**
    * #TODO i dont get how to implement this as js uses reference-count garbage collection which cant be overridden or hooked into
    * @param {PresentationAvailability} A
@@ -255,7 +270,7 @@ class Presentator extends Presentation {
   configure(ic) {
     console.log("loaded Implementation: " + ic.name);
     // #HACK faster than looking up proper reflection, ES6 assign doesnt take over methods ¯\_(ツ)_/¯
-    ["monitor", "selectDisplay", "connect", "send", "receive", "close", "host"].forEach(h => {
+    ImplementationConfig.Handlers().forEach(h => {
       let handler = h + "Handler";
       this._set(handler, ic[handler]);
     });
@@ -279,9 +294,10 @@ class Presentator extends Presentation {
 
 class ImplementationConfig {
   /**
-   * @param {String}  name          - human readable name
+   * @param {String}  name          - human readable name of the implementation setup
    * @param {Promise} monitor       - how do you seek out for new displays,
    * @param {Promise} selectDisplay - select them,
+   * @param {Promise} createContext - connect to them,
    * @param {Promise} connect       - connect to them,
    * @param {Promise} send          - send messages to them,
    * @param {Promise} receive       - receive messages
@@ -291,12 +307,13 @@ class ImplementationConfig {
    */
   constructor(name, handlers) {
     this.name                 = name;
-    this.monitorHandler       = handlers.monitor;
-    this.selectDisplayHandler = handlers.selectDisplay;
-    this.connectHandler       = handlers.connect;
-    this.sendHandler          = handlers.send;
-    this.receiveHandler       = handlers.receive;
-    this.closeHandler         = handlers.close;
-    this.hostHandler          = handlers.host;
+    ImplementationConfig.Handlers().forEach(h => {
+      let handler = h + "Handler";
+      this[handler] = handlers[h];
+    });
+  }
+
+  static Handlers() {
+    return ["monitor", "selectDisplay", "createContext", "connect", "send", "receive", "close", "host"];
   }
 }

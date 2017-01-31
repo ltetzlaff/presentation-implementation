@@ -95,7 +95,10 @@ class PresentationRequest {
         window.navigator.presentation.letUserSelectDisplay(this.presentationUrls)
         .then(D => {
           // 11. - 12.
-          window.navigator.presentation.startPresentationConnection(this, D, P);
+          let r = window.navigator.presentation.startPresentationConnection(this, D, P);
+          if (r) {
+            resolve(r);
+          }
           // #TODO does giving P work here? otherwise we would have to use function(resolve, reject) and return something like (self, D, this)
         });
       });
@@ -194,7 +197,8 @@ class PresentationConnection {
     // {presentation identifier}
     readOnly(this, "id", id);
     readOnly(this, "url", url);
-    readOnly(this, "state", PresentationConnectionState.connecting);
+    //readOnly(this, "state", PresentationConnectionState.connecting); // #ambigous the spec says this shall be readonly but it shall also be altered quite often o_O
+    this.state = PresentationConnectionState.connecting;
     
     // Control
     this.onconnect = null;
@@ -293,13 +297,11 @@ class PresentationConnection {
       return;                                         // 1.
     }
     this.state = PresentationConnectionState.closed;  // 2.
-    //this.implementationReference.close(closeReason);  // 3.
-    window.navigator.presentation.close(closeReason);
-    if (closeReason != PresentationClosedReasons.wentaway) {
+    window.navigator.presentation.close(closeReason); // 3.
+    if (closeReason != PresentationConnectionClosedReasons.wentaway) {
       // #TODO
       // https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
     }
-    
     //this.dispatchEvent(new Event("close"));
   }
   

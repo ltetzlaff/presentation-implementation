@@ -29,16 +29,17 @@ class Receiver {
     this.url = url;
   }
 
+  // transmit message to receiver
   notify(type, msg) {
-    // #TODO handle via sth like socketio
+    // #TODO longpolling
   }
 }
 class Controller {
   
 }
-// {[Receiver]}
+// [{Receiver}]
 const receivers = [];
-// {[Controller]}
+// [{Controller}]
 const controllers = [];
 
 // ---   ROUTES   ---
@@ -55,13 +56,23 @@ let simpleRoutes = ["receiver", "demoPage", "controller"].forEach(page => {
   });
 })
 
+// Controller connects to receiver
 router.post("/join", (req, res) => {
   let form = req.body; // {id: "Room1", name: "John Doe", url: "123.gg/room1"}
-  receivers.find(r => r.id === form.id).notify("joined", form.name);
+  let receiver = receivers.find(r => r.id === form.id);
+  if (receiver) {
+    receiver.notify("joined", form.name);
+  }
   console.log("controller:", form);
   res.send("OK");
-})
+});
 
+router.post("/prepareRoom", (req, res) => {
+  receiver.notify("createContext");
+  res.send("OK");
+});
+
+// Receiver marks himself as host here
 router.post("/host", (req, res) => {
   let form = req.body;
   receivers.push(new Receiver(form.id, form.url));
@@ -69,6 +80,7 @@ router.post("/host", (req, res) => {
   res.send("OK");
 });
 
+// Controller retrieves displays (receivers that are currently hosting)
 router.get("/monitor", (req, res) => {
   res.send(receivers);
 });
