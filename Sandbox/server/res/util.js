@@ -50,6 +50,8 @@ function ajax(method, url, data) {
   method = method.toUpperCase();
   return new Promise((resolve, reject) => {
     let r = new XMLHttpRequest();
+    r.timeout = 60000;
+    
     r.onload = function() {
       if (this.status >= 200 && this.status < 400) {
         // Success
@@ -80,6 +82,25 @@ function ajax(method, url, data) {
     r.send();
   });
 }
+
+/**
+ * Does long polling to a server 
+ * @param {String} url destination to poll
+ * @param {JSON} initData the data which is beeing send every time
+ * @param {String} eventName - the name of the event which is beeing created when data arraivs
+ * @param {String} onStop - is suppose to be the event the function listens to, to know when to stop
+ * 
+ * is working, but not finished yet
+ */
+function ajaxLong(url, initData, eventName,onStop){
+      let runing = true;      
+      ajax('GET', url, initData).then((message) => {
+        
+        let event = new CustomEvent('build', { 'detail': message });
+        document.dispatchEvent(event);
+        ajaxLong(url, initData);
+      });
+    }
 
 /**
  * WebIDL states interfaces but js doesnt have an implement function x)
