@@ -37,12 +37,19 @@ function ready(fn) {
   }
 }
 
+// http://stackoverflow.com/a/18116302
+function querystring(o) {
+  if (!o || (typeof o !== "object")) {
+    console.log(o, typeof o);
+    return "";
+  }
+  return '?' + Object.keys(o).map(k => encodeURIComponent(k)+ '=' + encodeURIComponent(o[k])).join('&');
+}
+
 function ajax(method, url, data) {
   method = method.toUpperCase();
   return new Promise((resolve, reject) => {
     let r = new XMLHttpRequest();
-    r.open(method, url, true);
-    
     r.onload = function() {
       if (this.status >= 200 && this.status < 400) {
         // Success
@@ -66,12 +73,11 @@ function ajax(method, url, data) {
       reject(404);
     }
     
-    if (method === "POST") {
+    r.open(method, url + querystring(data), true);
+    /*if (method === "POST") {
       r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-      r.send(JSON.stringify(data));
-    } else {
-      r.send();
-    }
+    }*/
+    r.send();
   });
 }
 

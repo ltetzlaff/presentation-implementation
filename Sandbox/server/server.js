@@ -7,7 +7,7 @@ const http = require('http');
 const logger = require('morgan');
 const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
-
+const EventEmitter = require("events").EventEmitter;
 
 // ---   SETUP    ---
 e.set('port', process.env.PORT || 80); //http #yolo
@@ -23,19 +23,36 @@ e.use(cookieParser());
 e.use(express.static(path.join(__dirname, 'res')));
 
 // ---   LOGIC    ---
-class Receiver {
+class Entity {
+  constructor() {
+    this.mailBox = new EventEmitter();
+  }
+
+  receive(type, data) {
+    this.mailBox.emit(type, JSON.stringify(data));
+  }
+
+  send(receiver, type, msg) {
+    if (!(receiver instanceof Entity)) {
+      console.warn("Tried to send message to " + receiver + ", typeof " + typeof receiver);
+      return;
+    }
+    receiver.receive(type, msg);
+  }
+}
+
+class Receiver extends Entity {
   constructor(id, url) {
+    super();
     this.id = id;
     this.url = url;
   }
-
-  // transmit message to receiver
-  notify(type, msg) {
-    // #TODO longpolling
-  }
 }
-class Controller {
-  
+class Controller extends Entity {
+  constructor(name) {
+    super();
+    this.name = name;
+  }
 }
 // [{Receiver}]
 const receivers = [];
@@ -50,33 +67,91 @@ router.get("/", (req, res) => {
   res.render("overview", {title: "Overview"});
 });
 
-let simpleRoutes = ["receiver", "demoPage", "controller"].forEach(page => {
+["receiver", "demoPage", "controller"].forEach(page => {
   router.get("/" + page, (req, res) => {
     res.render(page, {title: page})
   });
 })
 
-// Controller connects to receiver
+
+// Receiver
+function parseQs(req) {
+  req.receiver   =   receivers.find(r => r.id   === req.query.id) ||
+                     receivers.find(r => r.url  === req.query.url);
+  req.controller = controllers.find(c => c.name === req.query.name);
+}
+
+/**
+ * connect
+ * @param {string} id - receiver
+ */
 router.post("/join", (req, res) => {
-  let form = req.body; // {id: "Room1", name: "John Doe", url: "123.gg/room1"}
-  let receiver = receivers.find(r => r.id === form.id);
-  if (receiver) {
-    receiver.notify("joined", form.name);
-  }
-  console.log("controller:", form);
+  // {id: "Room1", name: "John Doe", url: "123.gg/room1"}
+  req.receiver.receive("joined", req.query.name);
+  controllers.push(new Controller(req.query.name));
   res.send("OK");
 });
 
+/**
+ * createContext
+ * @param {string} url - receiver
+ */
 router.post("/prepareRoom", (req, res) => {
-  receiver.notify("createContext");
+  parseQs(req);
+  req.receiver.receive("createContext");
   res.send("OK");
 });
 
-// Receiver marks himself as host here
+/**
+ * send
+ * either of these as a recipient:
+ * @param {string} id - receiver
+ * @param {string} name - controller
+ * 
+ * the one from the above that was not used:
+ * @param {string} from - controller/receiver
+ */
+router.post("/sendMail", (req, res) => {
+  parseQs(req);
+  if (req.receiver && req.controller) {
+    res.send("Ambigious recipient");
+  }
+  
+  let from = req.query.from;
+  let initiator = receivers.find(r => r.id === from) || controllers.find(c => c.name === from);
+  if (initiator) {
+    let recipient = req.receiver || req.controller;
+    initiator.send(recipient, req.query.type, req.query.msg);
+    res.send("OK");
+  } else {
+    res.send("Couldn't find recipient");
+  }
+});
+
+/**
+ * receive
+ * @param {string} id - receiver
+ * @param {string} name - controller
+ */
+router.get("/getMail", (req, res) => {
+  parseQs(req);
+  let recipient = req.receiver || req.controller;
+  if (recipient) {
+    recipient.once("message", msg => res.end(msg));
+    res.send("OK");
+  } else {
+    res.send("Couldn't find recipient");
+  }
+});
+
+/**
+ * host
+ * Receiver marks himself as host here
+ * @param {string} id - receiver
+ * @param {string} url - controller
+ */
 router.post("/host", (req, res) => {
-  let form = req.body;
-  receivers.push(new Receiver(form.id, form.url));
-  console.log("receiver:", form);
+  receivers.push(new Receiver(req.query.id, req.query.url));
   res.send("OK");
 });
 
@@ -128,9 +203,9 @@ server.listen(e.get('port'), () => {
 });
 
 // ---   SOCKET   ---
-const io = require('socket.io').listen(server); //attached to webserver
+/*const io = require('socket.io').listen(server); //attached to webserver
 
-/*io.sockets.on('connection', function(socket) {
+io.sockets.on('connection', function(socket) {
 	console.log("connected");
   
   // disconnect

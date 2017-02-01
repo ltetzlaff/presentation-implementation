@@ -40,20 +40,27 @@ const solutions = {
   mockup: {
     monitor         :  () => Promise.resolve(demoDisplays),
     selectDisplay   :  (displays) => Promise.resolve(demoDisplays[0]),
-    createContext   :  () => Promise.reject(),
+    createContext   :  (url) => Promise.reject(),
     connect         :  (id, url) => Promise.resolve(true),
-    send            :  () => Promise.reject(),
-    receive         :  (type, data) => Promise.reject(),
+    send            :  (type, data) => Promise.reject(),
+    receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
     host            :  (receiverId, receiverUrl) => Promise.resolve()
   },
   ajax: {
     monitor         :  () => ajax("get", server + "/monitor"),
     selectDisplay   :  (displays) => selectDisplayUI(displays),
-    createContext   :  () => ajax("get", server + "/prepareRoom"),
-    connect         :  (id, url) => ajax("post", server + "/join", {id: id, url: url, name: CLIENT_NAME}), // #TODO
-    send            :  () => Promise.reject(),
-    receive         :  (type, data) => Promise.reject(),
+    createContext   :  (url) => ajax("post", server + "/prepareRoom", {url: url}),
+    connect         :  (id, url) => ajax("post", server + "/join", {id: id, url: url, name: CLIENT_NAME}),
+    send            :  (type, data) => Promise.reject(),
+    receive         :  (UA) => {
+      let fct = function() {
+        ajax("get", server + "/getMail").then(mail => {
+          UA.dispatchEvent(new Event("data", mail));
+        });
+        setTimeout(fct, 1000);
+      };
+    },
     close           :  (reason) => Promise.reject(),
     host            :  (receiverId, receiverUrl) => {
       // Register Host on Server
@@ -64,30 +71,30 @@ const solutions = {
   socketio: {
     monitor         :  () => Promise.reject(),
     selectDisplay   :  (displays) => Promise.reject(),
-    createContext   :  () => Promise.reject(),
+    createContext   :  (url) => Promise.reject(),
     connect         :  (id, url) => Promise.reject(),
-    send            :  () => Promise.reject(),
-    receive         :  (type, data) => Promise.reject(),
+    send            :  (type, data) => Promise.reject(),
+    receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
     host            :  (receiverId, receiverUrl) => Promise.resolve()
   },
   local: {
     monitor         :  () => Promise.reject(),
     selectDisplay   :  (displays) => Promise.reject(),
-    createContext   :  () => Promise.reject(),
+    createContext   :  (url) => Promise.reject(),
     connect         :  (id, url) => Promise.reject(),
-    send            :  () => Promise.reject(),
-    receive         :  (type, data) => Promise.reject(),
+    send            :  (type, data) => Promise.reject(),
+    receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
     host            :  (receiverId, receiverUrl) => Promise.resolve()
   },
   extension: {
     monitor         :  () => Promise.reject(),
     selectDisplay   :  (displays) => Promise.reject(),
-    createContext   :  () => Promise.reject(),
+    createContext   :  (url) => Promise.reject(),
     connect         :  (id, url) => Promise.reject(),
-    send            :  () => Promise.reject(),
-    receive         :  (type, data) => Promise.reject(),
+    send            :  (type, data) => Promise.reject(),
+    receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
     host            :  (receiverId, receiverUrl) => Promise.resolve()
   }
