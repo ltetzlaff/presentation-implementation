@@ -200,7 +200,7 @@ class Presentator extends Presentation {
     // 5.
     presentationUrls.some(presentationUrl => {
       if (this.availablePresentationDisplays.find(apd => apd.presentationUrl === presentationUrl)) {
-        pUrl = presentationUrl.toString(); // #TODO check if toString is appropriate
+        pUrl = presentationUrl.toString();
         return true;
       }
     });
@@ -216,7 +216,7 @@ class Presentator extends Presentation {
     // Queue a task to fire a trusted event with the name connectionavailable, that uses the PresentationConnectionAvailableEvent interface, with the connection attribute initialized to S, at presentationRequest. The event must not bubble, must not be cancelable, and has no default action.
 
     // 10.+ 12.
-    this.createContextHandler()
+    this.createContextHandler(pUrl)
     .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
     .then (() => S.establish()); /* 13. */
     
