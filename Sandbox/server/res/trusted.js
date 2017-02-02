@@ -47,15 +47,21 @@ class Presentator extends Presentation {
      */
     this.availablePresentationDisplays = [];
 
-    // Continous Monitoring
-    if (this.allowed == DiscoveryAllowance.continous) {
-      setInterval(this.monitor(this.defaultRequest), this.SCAN_PERIOD);
-    }
-    
     /**
-     * Technically possible because there wer a monitorHandler attached
+     * Technically possible because there was a monitorHandler attached
      */
     this.possible = false;
+    this.refreshContinousMonitoring();
+  }
+
+  refreshContinousMonitoring() {
+    // Continous Monitoring
+    if (this.continousMonitoring) {
+      clearInterval(this.continousMonitoring);
+    }
+    if (this.allowed == DiscoveryAllowance.continous) {
+      this.continousMonitoring = setInterval(() => {this.monitor(this.defaultRequest)}, this.SCAN_PERIOD);
+    }
   }
   
   /**
@@ -65,39 +71,36 @@ class Presentator extends Presentation {
    * @return {Promise}
    */
   monitor(pr) {
+    console.log("monitoring");
     this.monitoring = true;
     let availabilitySet = this.availabilityObjects || [];// 1.
     
-    if (this.pendingSelection && pr.presentationDisplayAvailability === null) { // 2.
+    if (this.pendingSelection && pr && pr.presentationDisplayAvailability === null) { // 2.
       let A = new PresentationAvailability();                                // 2.1
       availabilitySet.push({A: A, urls: pr.presentationUrls});        // 2.2
     }
     
     let newDisplays = [];                                 // 3.
     if (this.possible && this.allowed) {                  // 4.
-      this.monitorHandler().then((displays) => {          // 5.
+      return this.monitorHandler().then((displays) => {          // 5.
         newDisplays = displays;
-//        console.log("displays:", displays);
-        /*console.log("availabilitySet:", availabilitySet);
-        console.log("availabilityObj:", this.availabilityObjects);*/
         this.availablePresentationDisplays = [];          // 6.
-//        console.log(availabilitySet);
         availabilitySet.forEach(availability => {         // 7.
           let previousAvailability = availability.A.value;  // 7.1
           let newAvailability = false;                      // 7.2
-//          console.log(availability);
+          // console.log(availability);
           availability.urls.forEach(availabilityUrl => {    // 7.3.
             newDisplays.forEach(display => {                  // 7.3.1.
               // #TODO somehow check if display is an available presentation display
               // For each display in newDisplays, if display is an available presentation display for availabilityUrl, then run the following steps
               let tuple = {availabilityUrl, display};
+              //console.log(this.availablePresentationDisplays, tuple);
               if (!includes(this.availablePresentationDisplays, tuple)) {
                 this.availablePresentationDisplays.push(tuple); // 7.3.1.1.
-                console.log("new display detected: ", tuple);
+                //console.log("display detected: ", tuple);
               }
               this.monitoring = false;
               newAvailability = true;                           // 7.3.1.2
-
               // #TODO 7.4 and 7.5
               // https://w3c.github.io/presentation-api/#monitoring-the-list-of-available-presentation-displays
 
@@ -107,6 +110,7 @@ class Presentator extends Presentation {
       });
     } else {
       this.monitoring = false;
+      return Promise.reject();
     }
   }
   
@@ -140,7 +144,7 @@ class Presentator extends Presentation {
     .catch(() => {
       // 10.
       this.pendingSelection = true;
-      throw new DOMException(DOMException.NOT_ALLOWED_ERROR);
+      throw domEx("NOT_ALLOWED_ERROR");
     })
     .then(v => {
        return this.getUserSelectedDisplay(presentationUrls);
@@ -172,14 +176,14 @@ class Presentator extends Presentation {
     return new Promise((resolve, reject) => {
       let empty = this.availablePresentationDisplays.length === 0; // #TODO add check if currently monitoring etc => "stays empty"
       let couldConnectToAnUrl = this.urlsTest(presentationUrls);
-//      console.log(this.availablePresentationDisplays, presentationUrls);
+      //console.log(empty, !couldConnectToAnUrl);
       if (empty || !couldConnectToAnUrl) {
-        reject(new DOMException(DOMException.NOT_FOUND_ERROR));
+        reject(domEx("NOT_FOUND_ERROR"));
       } else {
         // Ask user which display shall be taken
-        let D = this.selectDisplayHandler(this.availablePresentationDisplays);
+        let displays = this.availablePresentationDisplays.map(apd => apd.display);
+        let D = this.selectDisplayHandler(displays);
         this.pendingSelection = false;
-        console.log(D);
         resolve(D);
       }
     });
@@ -193,18 +197,18 @@ class Presentator extends Presentation {
    */
   startPresentationConnection(presentationRequest, D, P) {
     console.log("starting Connection to: ", D);
-    let I = guid(); // 1. #TODO check for collision if this goes into production
+    let I = D.id;
     let presentationUrls = presentationRequest.presentationUrls; // 4.
     let pUrl = "";
 
     // 5.
     presentationUrls.some(presentationUrl => {
-      if (this.availablePresentationDisplays.find(apd => apd.presentationUrl === presentationUrl)) {
+      if (this.availablePresentationDisplays.find(apd => apd.availabilityUrl === presentationUrl)) {
         pUrl = presentationUrl.toString();
         return true;
       }
     });
-    
+
     let S = new PresentationConnection(I, pUrl); // 2., 3., 6.
     this.controlledPresentations.push(S); // 7.
     
@@ -281,13 +285,10 @@ class Presentator extends Presentation {
    * @param {Function<Promise>} handlerFct
    */
   _set(handlerName, handlerFct) {
-    /*if (!(handlerFct && handlerFct.then)) {
-      console.log(handlerName, handlerFct, handlerFct.then)
-      throw new DOMException(DOMException.TYPE_ERROR);
-    }*/
     this[handlerName] = handlerFct;
     if (handlerName === "connectHandler") {
       this.possible = true;
+      this.refreshContinousMonitoring();
     }
   }
 }

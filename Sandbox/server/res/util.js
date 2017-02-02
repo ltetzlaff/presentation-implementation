@@ -40,7 +40,6 @@ function ready(fn) {
 // http://stackoverflow.com/a/18116302
 function querystring(o) {
   if (!o || (typeof o !== "object")) {
-    console.log(o, typeof o);
     return "";
   }
   return '?' + Object.keys(o).map(k => encodeURIComponent(k)+ '=' + encodeURIComponent(o[k])).join('&');
@@ -180,6 +179,11 @@ function createContext(url) {
   ifrm.style.height = "100%";
   document.body.appendChild(ifrm);
   return ifrm;
+}
+
+function domEx(id) {
+  console.error(new Error().stack);
+  return new DOMException(DOMException[id]);
 }
 
 // none: must not discover, manual: may discover if initiated manually (powersave), continous: do what Bam Margera will do next

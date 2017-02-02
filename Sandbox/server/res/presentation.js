@@ -48,7 +48,7 @@ class PresentationRequest {
   // 6.3.1
   constructor(urls) {
     if (!urls) {
-      throw new DOMException(DOMException.NOT_SUPPORTED_ERROR); // 1.
+      throw domEx("NOT_SUPPORTED_ERROR"); // 1.
     }
     
     if (!(urls instanceof Array)) {
@@ -146,7 +146,7 @@ class PresentationRequest {
       if (window.navigator.presentation.allowed < DiscoveryAllowance.continous) { // 4.
         console.warn("Not possible to monitor available presentation displays.");
         this.getAvailabilityPending = null;
-        return reject(new DOMException(DOMException.NOT_SUPPORTED_ERROR));
+        return reject(domEx("NOT_SUPPORTED_ERROR"));
       }
       
       if (this.presentationDisplayAvailability !== null) {
@@ -157,10 +157,10 @@ class PresentationRequest {
       this.presentationDisplayAvailability = new PresentationAvailability();
       let A = this.presentationDisplayAvailability;            // 6.
       window.navigator.presentation.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
-      window.navigator.presentation.monitor(this);                                                     // 8.
-      
-      this.getAvailabilityPending = null;
-      return resolve(A);                                       // 9.
+      return window.navigator.presentation.monitor(this).then(() => { // 8.
+        this.getAvailabilityPending = null;
+        return resolve(A);                                     // 9.  
+      });
     });
     
     this.getAvailabilityPending = P;
@@ -225,17 +225,15 @@ class PresentationConnection {
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
     return window.navigator.presentation.connect(this.id, this.url)
-      .then((reference) => {
-        // 3.
-        //this.implementationReference = reference; // custom
-        this.state = PresentationConnectionState.connected;
-        this.dispatchEvent(new Event("change"));
-        return true;
-      })
       .catch(() => {
-        // 4.
-        this.close(PresentationConnectionClosedReasons.error);
+        this.close(PresentationConnectionClosedReasons.error); // 4.
         return false;
+      })
+      .then((reference) => {
+        //this.implementationReference = reference; // custom
+        this.state = PresentationConnectionState.connected;   // 3.
+        //this.dispatchEvent(new Event("change")); //#TODO
+        return true;
       });
   }
   
@@ -247,7 +245,7 @@ class PresentationConnection {
    */
   send(messageOrData) {
     if (this.state !== PresentationConnectionState.connected) {
-      throw new DOMException(DOMException.INVALID_STATE_ERROR); // 1.
+      throw domEx("INVALID_STATE_ERROR"); // 1.
     }
     
     // 2. TODO
@@ -378,11 +376,12 @@ class PresentationReceiver {
    * create receiver
    * https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context
    * @param {PresentationDisplay} D
-   * @param {String} presentationUrl - the presentation request url
-   * @param {String} presentationId - the presentation identifier
+   * @param {String} presentationUrl - the presentation request url (should be in D)
+   * @param {String} presentationId - the presentation identifier (gets generated on creation)
    */
-  constructor(D, presentationUrl, presentationId) {
-    this.presentationId = presentationId;
+  constructor(D/*, presentationUrl, presentationId*/) {
+    this.presentationId = guid() /*presentationId*/;
+    let presentationUrl = D.url;
     
     // 6.6
     // Contains the presentation connections created by a receiving browsing context for the receiving user agent.
@@ -418,7 +417,7 @@ class PresentationReceiver {
     // #TODO i dont want to implement https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context :)
     let C = createContext(presentationUrl);
     if (window.navigator.presentation.hostHandler) {
-      window.navigator.presentation.hostHandler(this.presentationId, presentationUrl);
+      window.navigator.presentation.hostHandler(this.presentationId, presentationUrl, D.displayName);
     }
   }
   

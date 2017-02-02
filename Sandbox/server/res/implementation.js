@@ -1,4 +1,4 @@
-let demoDisplays = [{id: "Display One", technology: "HDMI"}, {id: "Wireless Display", technology: "Chromecast"}];
+let demoDisplays = [{displayName: "Display One", url: "http://localhost/demoPage"}, {displayName: "Wireless Display", url: "http://localhost/displays/wireless"}];
 let demoRoomName = "Demo Room";
 let server = "";
 let CLIENT_NAME = "John Doe";
@@ -19,19 +19,18 @@ let selectDisplayUI = (displays) => {
         window.removeEventListener("message", this);
         picker.remove();
 
-        let selectedId = e.data;
-        let selectedDisplay = displays.find(d => d.display.id === selectedId);
+        let selectedDisplay = displays.find(d => d.displayName === e.data);
         resolve(selectedDisplay);
       }
     });
     
     // Communication to iframe (send displays to choose from)
     picker.onload = () => {
-      let displayIds = [];
-      displays.forEach(apd => {
-        displayIds.push(apd.display.id);
+      let displayNames = [];
+      displays.forEach(d => {
+        displayNames.push(d.displayName);
       });
-      picker.contentWindow.postMessage(displayIds, "*");  
+      picker.contentWindow.postMessage(displayNames, "*");  
     }
   });
 }; 
@@ -45,13 +44,13 @@ const solutions = {
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
-    host            :  (receiverId, receiverUrl) => Promise.resolve()
+    host            :  (id, url, displayName) => Promise.resolve()
   },
   ajax: {
     monitor         :  () => ajax("get", server + "/monitor"),
     selectDisplay   :  (displays) => selectDisplayUI(displays),
     createContext   :  (url) => ajax("post", server + "/prepareRoom", {url: url}),
-    connect         :  (id, url) => ajax("post", server + "/join", {id: id, url: url, name: CLIENT_NAME}),
+    connect         :  (id, url) => ajax("post", server + "/join", {sessionId: id, url: url, name: CLIENT_NAME}),
     send            :  (type, data) => Promise.reject(),
     receive         :  (UA) => {
       let fct = function() {
@@ -62,9 +61,9 @@ const solutions = {
       };
     },
     close           :  (reason) => Promise.reject(),
-    host            :  (receiverId, receiverUrl) => {
+    host            :  (id, url, displayName) => {
       // Register Host on Server
-      return ajax("post", server + "/host", {id: receiverId, url: ""}); 
+      return ajax("post", server + "/host", {id: id, url: url, displayName: displayName}); 
       // because this implementation only relies on the server there is no need for more than one unique identifier
     }
   },
@@ -76,7 +75,7 @@ const solutions = {
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
-    host            :  (receiverId, receiverUrl) => Promise.resolve()
+    host            :  (id, url, displayName) => Promise.resolve()
   },
   local: {
     monitor         :  () => Promise.reject(),
@@ -86,7 +85,7 @@ const solutions = {
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
-    host            :  (receiverId, receiverUrl) => Promise.resolve()
+    host            :  (id, url, displayName) => Promise.resolve()
   },
   extension: {
     monitor         :  () => Promise.reject(),
@@ -96,7 +95,7 @@ const solutions = {
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
     close           :  (reason) => Promise.reject(),
-    host            :  (receiverId, receiverUrl) => Promise.resolve()
+    host            :  (id, url, displayName) => Promise.resolve()
   }
 }
 
