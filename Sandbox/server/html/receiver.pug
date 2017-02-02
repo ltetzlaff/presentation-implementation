@@ -5,8 +5,14 @@ block js
   script.
     ready(() => {
       $("#host").addEventListener("click", () => {
-        window.navigator.presentation.receiver = new PresentationReceiver(demoDisplays[0], "demoPage", demoDisplays[0].id);
+        let select = $("#displaySelector");
+        let i = select.options[select.selectedIndex].value;
+        window.navigator.presentation.receiver = new PresentationReceiver(demoDisplays[i]);
       });
     });
 block content
+  - var displays = [{displayName: "Display One", url: "http://localhost/demoPage"}, {displayName: "Wireless Display", url: "http://localhost/displays/wireless"}];  
+  select#displaySelector
+    each display in displays
+      option(value="0")= display.displayName
   button#host Host

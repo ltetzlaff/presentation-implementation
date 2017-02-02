@@ -6,6 +6,7 @@ block js
     ready(() => {
       $("#join").addEventListener("click", () => {
         let req = new PresentationRequest($("#url").value);
+        navigator.presentation.defaultRequest = req;
         req.getAvailability().then(a => {
           console.log("availability: ", a);
           req.start().catch(e => console.log(e));
@@ -13,5 +14,5 @@ block js
       });
     });
 block content
-  input#url(type="text")
+  input#url(type="text",value="http://localhost/demoPage")
   button#join Join

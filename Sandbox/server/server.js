@@ -25,7 +25,7 @@ e.use(express.static(path.join(__dirname, 'res')));
 // ---   LOGIC    ---
 class Entity {
   constructor() {
-    this.mailBox = new EventEmitter();
+    Object.defineProperty(this, "mailBox", {value: new EventEmitter(), enumerable: false});
   }
 
   receive(type, data) {
@@ -42,10 +42,11 @@ class Entity {
 }
 
 class Receiver extends Entity {
-  constructor(id, url) {
+  constructor(id, url, displayName) {
     super();
     this.id = id;
     this.url = url;
+    this.displayName = displayName;
   }
 }
 class Controller extends Entity {
@@ -77,7 +78,8 @@ router.get("/", (req, res) => {
 // Receiver
 function parseQs(req) {
   req.receiver   =   receivers.find(r => r.id   === req.query.id) ||
-                     receivers.find(r => r.url  === req.query.url);
+                     receivers.find(r => r.url  === req.query.url) /*||
+                     receivers.find(r => r.displayName === req.query.displayName)*/;
   req.controller = controllers.find(c => c.name === req.query.name);
 }
 
@@ -86,10 +88,13 @@ function parseQs(req) {
  * @param {string} id - receiver
  */
 router.post("/join", (req, res) => {
+  parseQs(req);
+  if (req.receiver) {
+    req.receiver.receive("joined", req.query.name);
+    controllers.push(new Controller(req.query.name));
+  }
   // {id: "Room1", name: "John Doe", url: "123.gg/room1"}
-  req.receiver.receive("joined", req.query.name);
-  controllers.push(new Controller(req.query.name));
-  res.send("OK");
+  res.send({});
 });
 
 /**
@@ -99,7 +104,7 @@ router.post("/join", (req, res) => {
 router.post("/prepareRoom", (req, res) => {
   parseQs(req);
   req.receiver.receive("createContext");
-  res.send("OK");
+  res.send({});
 });
 
 /**
@@ -122,7 +127,7 @@ router.post("/sendMail", (req, res) => {
   if (initiator) {
     let recipient = req.receiver || req.controller;
     initiator.send(recipient, req.query.type, req.query.msg);
-    res.send("OK");
+    res.send({});
   } else {
     res.send("Couldn't find recipient");
   }
@@ -137,8 +142,8 @@ router.get("/getMail", (req, res) => {
   parseQs(req);
   let recipient = req.receiver || req.controller;
   if (recipient) {
-    recipient.once("message", msg => res.end(msg));
-    res.send("OK");
+    recipient.mailBox.once("message", msg => res.end(msg));
+    res.send({});
   } else {
     res.send("Couldn't find recipient");
   }
@@ -151,8 +156,8 @@ router.get("/getMail", (req, res) => {
  * @param {string} url - controller
  */
 router.post("/host", (req, res) => {
-  receivers.push(new Receiver(req.query.id, req.query.url));
-  res.send("OK");
+  receivers.push(new Receiver(req.query.id, req.query.url, req.query.displayName));
+  res.send({});
 });
 
 // Controller retrieves displays (receivers that are currently hosting)

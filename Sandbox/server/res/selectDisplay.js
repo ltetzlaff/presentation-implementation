@@ -8,12 +8,12 @@ window.addEventListener("message", e => {
   });
 });
 
-function populateDisplayList(displayIds) {
+function populateDisplayList(displayNames) {
   let ul = $("#displays");
-  displayIds.forEach(displayId => {
+  displayNames.forEach(displayName => {
     // One Line per Display
     let li = document.createElement("li");
-    li.innerHTML = displayId;
+    li.innerHTML = displayName;
 
     // Attach Click Listener
     li.addEventListener("click", (e) => {
