@@ -17,5 +17,10 @@
     "morgan": "^1.7.0",
     "pug": "^2.0.0-beta6",
     "socket.io": "^1.7.2"
+  },
+  "devDependencies": {
+    "chai": "^3.5.0",
+    "chai-http": "^2.0.1",
+    "mocha": "^2.4.5"
   }
 }
