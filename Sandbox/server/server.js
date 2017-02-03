@@ -127,7 +127,7 @@ router.post("/sendMail", (req, res) => {
   if (initiator) {
     let recipient = req.receiver || req.controller;
     initiator.send(recipient, req.query.type, req.query.msg);
-    res.send({});
+    res.status(200).end();
   } else {
     res.send("Couldn't find recipient");
   }
@@ -142,10 +142,9 @@ router.get("/getMail", (req, res) => {
   parseQs(req);
   let recipient = req.receiver || req.controller;
   if (recipient) {
-    recipient.mailBox.once("message", msg => res.end(msg));
-    res.send({});
+    recipient.mailBox.once("message", msg => res.end(msg)); // Answer after reciving a message, not before   
   } else {
-    res.send("Couldn't find recipient");
+    res.status(404).send("Couldn't find recipient");
   }
 });
 
@@ -157,7 +156,7 @@ router.get("/getMail", (req, res) => {
  */
 router.post("/host", (req, res) => {
   receivers.push(new Receiver(req.query.id, req.query.url, req.query.displayName));
-  res.send({});
+  res.status(200).end()
 });
 
 // Controller retrieves displays (receivers that are currently hosting)
