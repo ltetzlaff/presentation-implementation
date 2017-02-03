@@ -16,7 +16,11 @@ e.set('port', process.env.PORT || 80); //http #yolo
 e.set('views', path.join(__dirname, 'html'));
 e.set('view engine', 'pug');
 //e.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
-e.use(logger('dev'));
+//don't show the log when it is test
+if(e.get('env') !== 'test') {
+    //use morgan to log at command line
+    e.use(logger('dev'));
+}
 e.use(bodyParser.json());
 e.use(bodyParser.urlencoded({ extended: false }));
 e.use(cookieParser());
@@ -119,18 +123,24 @@ router.post("/prepareRoom", (req, res) => {
 router.post("/sendMail", (req, res) => {
   parseQs(req);
   if (req.receiver && req.controller) {
-    res.send("Ambigious recipient");
+    res.send("Ambigious recipient").end();
+    return;
   }
   
   let from = req.query.from;
   let initiator = receivers.find(r => r.id === from) || controllers.find(c => c.name === from);
-  if (initiator) {
-    let recipient = req.receiver || req.controller;
-    initiator.send(recipient, req.query.type, req.query.msg);
-    res.status(200).end();
-  } else {
-    res.send("Couldn't find recipient");
+  let recipient = req.receiver || req.controller;
+  if (initiator == null){
+    res.status(401).send("No valid client").end();    
+    return;
   }
+  if (recipient == null) {
+    res.status(404).send("Couldn't find recipient").end();
+    return;
+  }  
+  initiator.send(recipient, req.body.type, req.body.msg);
+  res.status(200).end();
+  
 });
 
 /**
@@ -142,10 +152,16 @@ router.get("/getMail", (req, res) => {
   parseQs(req);
   let recipient = req.receiver || req.controller;
   if (recipient) {
-    recipient.mailBox.once("message", msg => res.end(msg)); // Answer after reciving a message, not before   
+    // Remove old listener bevor adding new one. Just in case the connection timed out    
+    recipient.mailBox.removeAllListeners("message").once("message", msg => res.json(msg)); // Answer after reciving a message, not before   
   } else {
     res.status(404).send("Couldn't find recipient");
   }
+  /*
+  setTimeout(function () {
+    recipient.mailBox.removeListener("message", listenerFun);
+    res.status(200).end("Timeout at: " + new Date().toLocaleTimeString());
+  }, 5000);*/
 });
 
 /**
