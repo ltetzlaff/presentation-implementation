@@ -15,34 +15,58 @@ describe('monitor', () => {
   * Test the /GET route
   */
   describe('/GET monitors', () => {
-    const id = 123
-      it('it should post a new monitors', (done) => {
+    
+      it('it should post a new monitors', () => {
          const monitor =  {
-            "id": id,
+            "id": 123,
             "url": "http://localhost/demoPage",
             "displayName": "Display One"
         }
+        const controller =  {
+            "id": 123,            
+            "name": "Controller One",
+            "type": "message",
+            "msg" : {"message": "ich bin Controller 1"}
+        }
+        
         chai.request(server)
             .post('/host')
             .query(monitor)
             .end((err, res) => {
                 res.should.have.status(200);      
-                console.log("Testcase! Muhaha")     
-                pol();  
+                console.log("Monitor setup")     
+                chai.request(server)
+                  .post('/join')
+                  .query(controller)
+                  .end((err, res) => {
+                      res.should.have.status(200);      
+                      console.log("Controler setup")     
+                      pol();
+                       
+                  });  
               //done();
             });      
         function pol()  {
           chai.request(server)
             .get('/getMail').query({id: 123, limit: 10}).end((err, res) => {
-              if(res.status != 200){
-                done();
+              if(err){
+                pol();
+              }
+              else if(res.status != 200)
+              {
+                return;
               }
               else{
                 pol();
+                console.log(res.body);
               }
             });
           };
+          //done();
           
+      });
+      it("End Test", (done) => {
+         // done() // if you wanna keep the server running, just don't call done();
       });
   });
 
