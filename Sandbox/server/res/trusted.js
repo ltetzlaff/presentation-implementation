@@ -221,7 +221,6 @@ class Presentator extends Presentation {
     
     // 8. (see comment below)
     //P.resolve(S); // this syntax is not supported so i wrapped the call to this function in a resolve and just return something to resolve to at the end of this
-    
 
     // 9.
     queueTask(() => {
@@ -329,15 +328,15 @@ class Presentator extends Presentation {
 class ImplementationConfig {
   /**
    * @param {String}  name          - human readable name of the implementation setup
-   * @param {Promise} monitor       - how do you seek out for new displays,
-   * @param {Promise} selectDisplay - select them,
-   * @param {Promise} createContext - connect to them,
-   * @param {Promise} connect       - connect to them,
-   * @param {Promise} send          - send messages to them,
-   * @param {Promise} receive       - receive messages
-   * @param {Promise} close         - notify them to close connection
+   * @param {Function<Promise>} monitor       - how do you seek out for new displays,
+   * @param {Function<Promise>} selectDisplay - select them,
+   * @param {Function<Promise>} createContext - connect to them,
+   * @param {Function<Promise>} connect       - connect to them,
+   * @param {Function<Promise>} send          - send messages to them,
+   * @param {Function<Promise>} receive       - receive messages (what to set up to achieve message retrieval)
+   * @param {Function<Promise>} close         - notify them to close connection
    *
-   * @param {Promise} host          - optional, what happens if you instantiate a new receiver (tell some server maybe?)
+   * @param {Function<Promise>} host          - optional, what happens if you instantiate a new receiver (tell some server maybe?)
    */
   constructor(name, handlers) {
     this.name                 = name;

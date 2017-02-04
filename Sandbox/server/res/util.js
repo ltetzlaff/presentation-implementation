@@ -108,6 +108,18 @@ function fire(event, at) {
   at.dispatchEvent(event);
 }
 
+function addEventListeners(obj, eventNames) {
+  if (typeof eventNames === "string") {
+    eventNames = [eventNames];
+  }
+  eventNames.forEach(name => {
+    obj["on" + name] = null;
+    this.addEventListener(name, (e) => {
+      return obj["on" + name](e);
+    });
+  });
+}
+
 /**
  * WebIDL states interfaces but js doesnt have an implement function x)
  * @param {Object} instance

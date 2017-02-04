@@ -26,7 +26,8 @@ class Presentation {
 class PresentationAvailability {
   constructor(value) {
     implement(this, EventTarget);
-    
+    addEventListeners(this, "change");
+
     /* 
       Spec ambigous again: .value must only be set by https://w3c.github.io/presentation-api/#interface-presentationavailability but also by monitor()?? 
     */
@@ -35,13 +36,6 @@ class PresentationAvailability {
     } else {
       this.value = false;
     }
-     
-    this.onchange = null;
-  }
-  
-  attachOnchange(handler) {
-    this.onchange = handler;
-    this.addEventListener('change', this.onchange);
   }
 }
 
@@ -51,6 +45,7 @@ class PresentationRequest {
   // 6.3.1
   constructor(urls) {
     implement(this, EventTarget);
+    addEventListeners(this, "connectionavailable");
 
     if (!urls) {
       throw domEx("NOT_SUPPORTED_ERROR"); // 1.
@@ -69,7 +64,6 @@ class PresentationRequest {
       this.presentationUrls.push(new URL(url, baseUrl)); // 4., throws SyntaxError correctly
     });
     
-    this.onconnectionavailable = null;
     this.presentationAvailabilityPromise = null;
     this.presentationDisplayAvailability = null;
     this.getAvailabilityPending = null;
@@ -197,23 +191,18 @@ class PresentationConnection {
    */
   constructor(id, url) {
     implement(this, EventTarget);
-    
+    addEventListeners(this, ["connect", "close", "terminate", "message"]);
+
     // {presentation identifier}
     readOnly(this, "id", id);
     readOnly(this, "url", url);
     //readOnly(this, "state", PresentationConnectionState.connecting); // #ambigous the spec says this shall be readonly but it shall also be altered quite often o_O
     this.state = PresentationConnectionState.connecting;
-    
-    // Control
-    this.onconnect = null;
-    this.onclose = null;
-    this.onterminate = null;
-    
-    // Communication
-    this.onmessage = null;
+        
     this.binaryType = BinaryType.arrayBuffer;
   }
   
+
   /**
    * 6.5.1
    * connect
@@ -289,7 +278,7 @@ class PresentationConnection {
     
     // 2.+3.
     let msgEventInit = {};
-    implement(msgEventInit, MessageEventInit);
+    //implement(msgEventInit, MessageEventInit); // this is not defined?
     switch (messageType) {
       case PresentationMessageType.text:
         msgEventInit.data = messageData;
@@ -501,8 +490,8 @@ class PresentationReceiver {
 class PresentationConnectionList {
   constructor() {
     implement(this, EventTarget);
-    
+    addEventListeners(this, "connectionavailable");
+
     this.connections = [];
-    this.onconnectionavailable = null;
   }
 }
