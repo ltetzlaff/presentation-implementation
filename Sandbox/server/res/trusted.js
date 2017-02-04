@@ -10,7 +10,8 @@ class Presentator extends Presentation {
   constructor() {
     super();
     this.monitoring = false;
-    
+    this.closing = false;
+
     // These shall be set by ._set() during configure(), auto-reject if they are mandatory
     ImplementationConfig.Handlers().forEach(h => {
       let handler = h + "Handler";
@@ -91,8 +92,6 @@ class Presentator extends Presentation {
           // console.log(availability);
           availability.urls.forEach(availabilityUrl => {    // 7.3.
             newDisplays.forEach(display => {                  // 7.3.1.
-              // #TODO somehow check if display is an available presentation display
-              // For each display in newDisplays, if display is an available presentation display for availabilityUrl, then run the following steps
               let tuple = {availabilityUrl, display};
               //console.log(this.availablePresentationDisplays, tuple);
               if (!includes(this.availablePresentationDisplays, tuple)) {
@@ -101,11 +100,19 @@ class Presentator extends Presentation {
               }
               this.monitoring = false;
               newAvailability = true;                           // 7.3.1.2
-              // #TODO 7.4 and 7.5
-              // https://w3c.github.io/presentation-api/#monitoring-the-list-of-available-presentation-displays
-
             });
           });
+
+          if (!availability.A.value) {
+            availability.A.value = newAvailability;         // 7.4
+          }
+
+          if (previousAvailability !== newAvailability) {
+            queueTask(() => {                               // 7.5
+              availability.A.value = newAvailability;
+              fire(new Event("change"), availability.A);
+            });
+          }
         });
       });
     } else {
@@ -216,8 +223,11 @@ class Presentator extends Presentation {
     //P.resolve(S); // this syntax is not supported so i wrapped the call to this function in a resolve and just return something to resolve to at the end of this
     
 
-    // 9. #TODO trusted event
-    // Queue a task to fire a trusted event with the name connectionavailable, that uses the PresentationConnectionAvailableEvent interface, with the connection attribute initialized to S, at presentationRequest. The event must not bubble, must not be cancelable, and has no default action.
+    // 9.
+    queueTask(() => {
+      let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: S});
+      fire(event, presentationRequest);
+    })
 
     // 10.+ 12.
     this.createContextHandler(pUrl)
@@ -250,6 +260,7 @@ class Presentator extends Presentation {
    * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
    */
   connect(id, url) {
+    this.closing = false;
     return this.connectHandler(id, url)/*.then(success => {
       if (this.receiver !== null) {
         this.receiver.handleClient(id, url);
@@ -260,10 +271,32 @@ class Presentator extends Presentation {
   
   /**
    * Notify other party to close the connection
-   * @param {PresentationConnectionClosedReasons} reason
+   * https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
+   * @param {PresentationConnection} presentationConnection
+   * @param {PresentationConnectionClosedReasons} closeReason
+   * @param {string} closeMessage
    */
-  close(reason) {
-    return this.closeHandler(reason);
+  close(presentationConnection, closeReason, closeMessage) {
+    if (this.closing) {
+      return; // 1.
+    }
+    queueTask(() => { // 2.
+      this.closing = true;
+      let states = [
+        PresentationConnectionState.closed, 
+        PresentationConnectionState.connecting, 
+        PresentationConnectionState.connected
+      ];
+      if (!(includes(states, presentationConnection.state))) {
+        return; // 2.1.
+      }
+      if (presentationConnection.state !== PresentationConnectionState.closed) {
+        presentationConnection.state = PresentationConnectionState.closed; // 2.2.
+      }
+      let event = new PresentationConnectionCloseEvent("close", new PresentationConnectionCloseEventInit(closeReason, closeMessage));
+      fire(event, presentationConnection);
+    });
+    return this.closeHandler(presentationConnection, closeReason, closeMessage);
   }
   
   /**

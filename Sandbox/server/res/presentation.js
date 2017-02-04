@@ -25,15 +25,18 @@ class Presentation {
  */
 class PresentationAvailability {
   constructor(value) {
+    implement(this, EventTarget);
+    
+    /* 
+      Spec ambigous again: .value must only be set by https://w3c.github.io/presentation-api/#interface-presentationavailability but also by monitor()?? 
+    */
     if (value !== undefined) {
-      this.value = value; // <-- must only be set by, https://w3c.github.io/presentation-api/#interface-presentationavailability #TODO
+      this.value = value;
     } else {
       this.value = false;
     }
      
-    this.onchange = null;
-    
-    implement(this, EventTarget);
+    this.onchange = null;    
   }
   
   attachOnchange(handler) {
@@ -99,7 +102,6 @@ class PresentationRequest {
           if (r) {
             resolve(r);
           }
-          // #TODO does giving P work here? otherwise we would have to use function(resolve, reject) and return something like (self, D, this)
         });
       });
       return P; // 6.
@@ -178,7 +180,7 @@ class PresentationConnectionAvailableEvent extends Event {
    * @param {PresentationConnectionAvailableEventInit} eventInitDict - see https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableeventinit {connection: {PresentationConnect}}
    */
   constructor(type, eventInitDict) {
-    super();
+    super(type);
     readOnly(this, "connection", eventInitDict.connection);
   }
 }
@@ -230,9 +232,10 @@ class PresentationConnection {
         return false;
       })
       .then((reference) => {
-        //this.implementationReference = reference; // custom
-        this.state = PresentationConnectionState.connected;   // 3.
-        //this.dispatchEvent(new Event("change")); //#TODO
+        queueTask(() => {
+          this.state = PresentationConnectionState.connected;   // 3.
+          fire(new Event("connect"), this);
+        });
         return true;
       });
   }
@@ -248,8 +251,10 @@ class PresentationConnection {
       throw domEx("INVALID_STATE_ERROR"); // 1.
     }
     
-    // 2. TODO
-    // If the closing procedure of presentationConnection has started, then abort these steps.
+    // 2.
+    if (this.state == PresentationConnectionState.closed) {
+      return;
+    }
     
     // 3.
     let messageType = null;
@@ -272,16 +277,37 @@ class PresentationConnection {
    * 6.5.3
    * receive message
    * @param {PresentationConnection} this
-   * @param {PresentationMessageType} presentationMessageType
-   * @param {string|binary} presentationMessageData
+   * @param {PresentationMessageType} messageType
+   * @param {string|binary} messageData
    */
-  receive(presentationMessageType, presentationMessageData) {
+  receive(messageType, messageData) {
     if (this.state !== PresentationConnectionState.connected) {
       return; // 1.
     }
     
-    // 2.-4.
-    // #TODO https://w3c.github.io/presentation-api/#receiving-a-message-through-presentationconnection
+    // 2.+3.
+    let msgEventInit = {};
+    implement(msgEventInit, MessageEventInit);
+    switch (messageType) {
+      case PresentationMessageType.text:
+        msgEventInit.data = messageData;
+        break;
+      case PresentationMessageType.binary:
+        if (this.binaryType == BinaryType.blob) {
+          msgEventInit.data = new Blob(messageData);
+        } else if (this.binaryType == BinaryType.arrayBuffer) {
+          msgEventInit.data = new ArrayBuffer(messageData);
+        } else {
+          console.error("Malformed presentationConnection.binaryType");
+        }
+        break;
+      default:
+        console.error("Malformed messageType at presentationConnection.receive()");
+        break;
+    }
+    
+    let event = new MessageEvent("message", msgEventInit);
+    queueTask(() => fire(event, this)); // 4.
   }
   
   /**
@@ -295,34 +321,33 @@ class PresentationConnection {
       return;                                         // 1.
     }
     this.state = PresentationConnectionState.closed;  // 2.
-    window.navigator.presentation.close(closeReason); // 3.
+    window.navigator.presentation.send(PresentationMessageType.text, JSON.stringify({close: closeReason})); // 3.
     if (closeReason != PresentationConnectionClosedReasons.wentaway) {
-      // #TODO
-      // https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
+      window.navigator.presentation.close(this, closeReason, closeMessage); // 4.
     }
-    //this.dispatchEvent(new Event("close"));
   }
   
   /**
    * 6.5.6
    * terminate controlling
    */
-  terminate() {
+  terminateAsController() {
     if (this.state != PresentationConnectionState.connected) {
       return; // 1.
     }
     
     window.navigator.presentation.controlledPresentations.forEach(knownConnection => { // 2.
       if (this.id === knownConnection.id && knownConnection.state == PresentationConnectionState.connected) { // 2.1
-        // #TODO queue a task to run the following steps
-        knownConnection.state = PresentationConnectionState.terminated; // 2.1.1
-        knownConnection.dispatchEvent(new Event("terminate"));// 2.1.2
+        queueTask(() => {
+          knownConnection.state = PresentationConnectionState.terminated; // 2.1.1
+          fire(new Event("terminate"), knownConnection);                  // 2.1.2
+        })
+        
       }
     });
     
     // 3.
-    // #TODO
-    // Send a termination request for the presentation to its receiving user agent using an implementation specific mechanism.
+    window.navigator.presentation.send(PresentationMessageType.text, JSON.stringify({terminate: true}));
   }
   
   /**
@@ -330,14 +355,30 @@ class PresentationConnection {
    * terminate receiving
    * https://w3c.github.io/presentation-api/#terminating-a-presentation-in-a-receiving-browsing-context
    */
-  //#TODO
+  terminateAsReceiver() {
+    // #TODO
+  }
    
    /**
    * 6.5.8
    * terminate receiving -> handle in controlling
    * https://w3c.github.io/presentation-api/#handling-a-termination-confirmation-in-a-controlling-user-agent
+   * @param {PresentationConnection} this
    */
-  //#TODO
+  handleTerminationConfirmationAsController(S) {
+    this.controlledPresentations.forEach(P => {
+      if (P == S) { // 1.
+        queueTask(() => {
+          if (P.state !== PresentationConnectionState.connected) {
+            return;   // 1.1
+          }
+
+          P.state = PresentationConnectionState.terminated; // 1.2
+          fire(new Event("terminate"), P); // 1.3
+        })
+      }
+    });
+  }
 }
 
 /**
@@ -349,7 +390,7 @@ class PresentationConnectionCloseEvent extends Event{
    * @param {DOMString} type
    */
   constructor(type, eventInitDict) {
-    super();
+    super(type);
   }
 }
 
@@ -361,8 +402,10 @@ class PresentationConnectionCloseEventInit {
    */
   constructor(reason, message) {
     if (!reason || PresentationConnectionClosedReasons.some(pccr => pccr === reason)) {
-      // #TODO throw something, this is required and must be in array
+      throw new Error("Illegal close reason");
     }
+    this.reason = reason;
+    this.message = message;
   }
 }
 
@@ -444,8 +487,10 @@ class PresentationReceiver {
         return;
       } else {                                                      // 9.
         this.controllersMonitor.connections = this.controllersMonitor.connections.concat(this.presentationControllers); // 9.1
-        // #TODO
-        // Queue a task to fire a trusted event with the name connectionavailable, that uses the PresentationConnectionAvailableEvent interface, with the connection attribute initialized to S, at the presentation controllers monitor. The event must not bubble, must not be cancelable, and has no default action.
+        queueTask(() => {
+          let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: S});
+          fire(event, this.controllersMonitor);
+        });
       }
     });
   }

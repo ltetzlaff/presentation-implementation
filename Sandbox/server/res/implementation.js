@@ -43,7 +43,7 @@ const solutions = {
     connect         :  (id, url) => Promise.resolve(true),
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
-    close           :  (reason) => Promise.reject(),
+    close           :  (conn, reason, message) => Promise.reject(),
     host            :  (id, url, displayName) => Promise.resolve()
   },
   ajax: {
@@ -60,7 +60,7 @@ const solutions = {
         setTimeout(fct, 1000);
       };
     },
-    close           :  (reason) => Promise.reject(),
+    close           :  (conn, reason, message) => Promise.reject(),
     host            :  (id, url, displayName) => {
       // Register Host on Server
       return ajax("post", server + "/host", {id: id, url: url, displayName: displayName}); 
@@ -74,7 +74,7 @@ const solutions = {
     connect         :  (id, url) => Promise.reject(),
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
-    close           :  (reason) => Promise.reject(),
+    close           :  (conn, reason, message) => Promise.reject(),
     host            :  (id, url, displayName) => Promise.resolve()
   },
   local: {
@@ -84,7 +84,7 @@ const solutions = {
     connect         :  (id, url) => Promise.reject(),
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
-    close           :  (reason) => Promise.reject(),
+    close           :  (conn, reason, message) => Promise.reject(),
     host            :  (id, url, displayName) => Promise.resolve()
   },
   extension: {
@@ -94,7 +94,7 @@ const solutions = {
     connect         :  (id, url) => Promise.reject(),
     send            :  (type, data) => Promise.reject(),
     receive         :  () => Promise.reject(),
-    close           :  (reason) => Promise.reject(),
+    close           :  (conn, reason, message) => Promise.reject(),
     host            :  (id, url, displayName) => Promise.resolve()
   }
 }
