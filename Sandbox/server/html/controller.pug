@@ -1,15 +1,45 @@
 extends layout.pug
 
 block js
-  script(src="implementation.js")
   script.
+    let UI = {
+      disabledColor: "#999",
+      enabledColor: "#000",
+      connect: () => {
+        $("#connect").style.color = UI.disabledColor;
+        $("#disconnect").style.color = UI.enabledColor;
+      },
+      disconnect: () => {
+        $("#connect").style.color = UI.enabledColor;
+        $("#disconnect").style.color = UI.disabledColor;
+      }
+    }
     ready(() => {
       $("#join").addEventListener("click", () => {
-        let req = new PresentationRequest($("#url").value);
-        navigator.presentation.defaultRequest = req;
-        req.getAvailability().then(a => {
+        let p = navigator.presentation;        
+        p.defaultRequest = new PresentationRequest($("#url").value);
+        p.onconnectionavailable = e => {
+          // Disconnect prior connections
+          // #TODO https://w3c.github.io/presentation-api/#monitor-connection-s-state-and-exchange-data-example
+
+          let conn = e.connection;
+          conn.onconnect = () => {
+            UI.connect();
+
+            conn.onmessage = messageEvent => {
+              console.log("received message:", messageEvent.data);
+              conn.send("Message Pingpong");
+            }
+          }
+          conn.onclose = () => {
+            UI.disconnect();
+          }
+        }
+
+        // Go
+        p.defaultRequest.getAvailability().then(a => {
           console.log("availability: ", a);
-          req.start().catch(e => console.log(e));
+          p.defaultRequest.start().catch(e => console.log(e));
         });
       });
     });

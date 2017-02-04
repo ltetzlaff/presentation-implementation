@@ -1,18 +1,10 @@
 extends layout.pug
 
 block js
-  script(src="implementation.js")
-  script.
-    ready(() => {
-      $("#host").addEventListener("click", () => {
-        let select = $("#displaySelector");
-        let i = select.options[select.selectedIndex].value;
-        window.navigator.presentation.receiver = new PresentationReceiver(demoDisplays[i]);
-      });
-    });
+  script(src="receiver.js")    
 block content
   - var displays = [{displayName: "Display One", url: "http://localhost/demoPage"}, {displayName: "Wireless Display", url: "http://localhost/displays/wireless"}];  
   select#displaySelector
     each display in displays
-      option(value="0")= display.displayName
+      option(value=display)= display.displayName
   button#host Host

@@ -1,5 +1,3 @@
-let demoDisplays = [{displayName: "Display One", url: "http://localhost/demoPage"}, {displayName: "Wireless Display", url: "http://localhost/displays/wireless"}];
-let demoRoomName = "Demo Room";
 let server = "";
 let CLIENT_NAME = "John Doe";
 
@@ -35,79 +33,31 @@ let selectDisplayUI = (displays) => {
   });
 }; 
 
-const solutions = {
-  mockup: {
-    monitor         :  () => Promise.resolve(demoDisplays),
-    selectDisplay   :  (displays) => Promise.resolve(demoDisplays[0]),
-    createContext   :  (url) => Promise.reject(),
-    connect         :  (id, url) => Promise.resolve(true),
-    send            :  (type, data) => Promise.reject(),
-    receive         :  () => Promise.reject(),
-    close           :  (conn, reason, message) => Promise.reject(),
-    host            :  (id, url, displayName) => Promise.resolve()
+const handlers = {
+  monitor         :  () => ajax("get", server + "/monitor"),
+  selectDisplay   :  (displays) => selectDisplayUI(displays),
+  createContext   :  (url) => ajax("post", server + "/prepareRoom", {url: url}),
+  connect         :  (id, url) => ajax("post", server + "/join", {sessionId: id, url: url, name: CLIENT_NAME}),
+  send            :  (type, data) => Promise.reject(),
+  receive: (UA) => {
+    // #TODO
+    /*let fct = function() {
+      ajax("get", server + "/getMail").then(mail => {
+        UA.dispatchEvent(new Event("data", mail));
+      });
+      setTimeout(fct, 1000);
+    };*/
   },
-  ajax: {
-    monitor         :  () => ajax("get", server + "/monitor"),
-    selectDisplay   :  (displays) => selectDisplayUI(displays),
-    createContext   :  (url) => ajax("post", server + "/prepareRoom", {url: url}),
-    connect         :  (id, url) => ajax("post", server + "/join", {sessionId: id, url: url, name: CLIENT_NAME}),
-    send            :  (type, data) => Promise.reject(),
-    receive         :  (UA) => {
-      let fct = function() {
-        ajax("get", server + "/getMail").then(mail => {
-          UA.dispatchEvent(new Event("data", mail));
-        });
-        setTimeout(fct, 1000);
-      };
-    },
-    close           :  (conn, reason, message) => Promise.reject(),
-    host            :  (id, url, displayName) => {
-      // Register Host on Server
-      return ajax("post", server + "/host", {id: id, url: url, displayName: displayName}); 
-      // because this implementation only relies on the server there is no need for more than one unique identifier
-    }
+  close: (conn, reason, message) => {
+    // #TODO
+    return Promise.reject()
   },
-  socketio: {
-    monitor         :  () => Promise.reject(),
-    selectDisplay   :  (displays) => Promise.reject(),
-    createContext   :  (url) => Promise.reject(),
-    connect         :  (id, url) => Promise.reject(),
-    send            :  (type, data) => Promise.reject(),
-    receive         :  () => Promise.reject(),
-    close           :  (conn, reason, message) => Promise.reject(),
-    host            :  (id, url, displayName) => Promise.resolve()
-  },
-  local: {
-    monitor         :  () => Promise.reject(),
-    selectDisplay   :  (displays) => Promise.reject(),
-    createContext   :  (url) => Promise.reject(),
-    connect         :  (id, url) => Promise.reject(),
-    send            :  (type, data) => Promise.reject(),
-    receive         :  () => Promise.reject(),
-    close           :  (conn, reason, message) => Promise.reject(),
-    host            :  (id, url, displayName) => Promise.resolve()
-  },
-  extension: {
-    monitor         :  () => Promise.reject(),
-    selectDisplay   :  (displays) => Promise.reject(),
-    createContext   :  (url) => Promise.reject(),
-    connect         :  (id, url) => Promise.reject(),
-    send            :  (type, data) => Promise.reject(),
-    receive         :  () => Promise.reject(),
-    close           :  (conn, reason, message) => Promise.reject(),
-    host            :  (id, url, displayName) => Promise.resolve()
+  host: (id, url, displayName) => {
+    // Register Host on Server
+    return ajax("post", server + "/host", {id: id, url: url, displayName: displayName}); 
   }
-}
+};
 
 window.navigator.presentation = new Presentator();
-let config = new ImplementationConfig("node socketio", {
-  monitor         :  solutions.ajax.monitor,
-  selectDisplay   :  solutions.ajax.selectDisplay,
-  createContext   :  solutions.ajax.createContext,
-  connect         :  solutions.ajax.connect,
-  send            :  solutions.ajax.send,
-  receive         :  solutions.ajax.receive,
-  close           :  solutions.ajax.close,
-  host            :  solutions.ajax.host
-});
+let config = new ImplementationConfig("ajax-based Example", handlers);
 window.navigator.presentation.configure(config);
