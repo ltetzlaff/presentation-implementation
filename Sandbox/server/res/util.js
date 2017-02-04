@@ -92,14 +92,21 @@ function ajax(method, url, data) {
  * is working, but not finished yet
  */
 function ajaxLong(url, initData, eventName,onStop){
-      let runing = true;      
-      ajax('GET', url, initData).then((message) => {
-        
-        let event = new CustomEvent('build', { 'detail': message });
-        document.dispatchEvent(event);
-        ajaxLong(url, initData);
-      });
-    }
+  let runing = true;      
+  ajax('GET', url, initData).then((message) => {    
+    let event = new CustomEvent('build', { 'detail': message });
+    document.dispatchEvent(event);
+    ajaxLong(url, initData);
+  });
+}
+
+function queueTask(cb) {
+  setTimeout(cb, 0);
+}
+
+function fire(event, at) {
+  at.dispatchEvent(event);
+}
 
 /**
  * WebIDL states interfaces but js doesnt have an implement function x)
