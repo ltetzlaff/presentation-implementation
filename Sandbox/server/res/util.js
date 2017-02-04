@@ -117,6 +117,12 @@ function implement(instance, I) {
   for (let prop in I) {
     instance[prop] = I[prop];
   }
+
+  // This magic was found at and adapted from: http://stackoverflow.com/a/24216547 
+  let eventTarget = document.createDocumentFragment();
+  for (let prop in I.prototype) {
+    instance[prop] = I.prototype[prop].bind(eventTarget);
+  }
 }
 
 /**

@@ -36,7 +36,7 @@ class PresentationAvailability {
       this.value = false;
     }
      
-    this.onchange = null;    
+    this.onchange = null;
   }
   
   attachOnchange(handler) {
@@ -50,6 +50,8 @@ class PresentationAvailability {
 class PresentationRequest {
   // 6.3.1
   constructor(urls) {
+    implement(this, EventTarget);
+
     if (!urls) {
       throw domEx("NOT_SUPPORTED_ERROR"); // 1.
     }
