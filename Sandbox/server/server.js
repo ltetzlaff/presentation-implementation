@@ -146,7 +146,7 @@ router.post("/sendMail", (req, res) => {
     res.status(404).send("Couldn't find recipient").end();
     return;
   }  
-  initiator.send(recipient, req.body.type, req.body.msg);
+  initiator.send(recipient, 'message', req.body.msg);
   res.status(200).end();
   
 });
