@@ -214,6 +214,10 @@ function createContext(url) {
   return ifrm;
 }
 
+/**
+ * @param {string} id - which kind of DomExp.: DomException.*
+ * @param {string} msg - optional: additional note to the error to be posted to console
+ */
 function domEx(id, msg) {
   console.error(new Error(msg).stack);
   return new DOMException(DOMException[id]);

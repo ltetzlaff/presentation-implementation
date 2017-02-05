@@ -61,7 +61,7 @@ class Presentator extends Presentation {
       clearInterval(this.continousMonitoring);
     }
     if (this.allowed == DiscoveryAllowance.continous) {
-      this.continousMonitoring = setInterval(() => {console.log(location.href); this.monitor(this.defaultRequest)}, this.SCAN_PERIOD);
+      this.continousMonitoring = setInterval(() => {this.monitor(this.defaultRequest)}, this.SCAN_PERIOD);
     }
   }
   
