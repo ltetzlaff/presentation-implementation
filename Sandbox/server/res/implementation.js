@@ -61,6 +61,12 @@ const handlers = {
             {id: id, url: url},
             (message) => message.forEach(joinedController => presentationReceiver.handleClient(joinedController.id))
     ); 
+  },
+  messageIncoming : (id, url, presentationConnection) => {
+    ajaxLong(server + "/getMail",
+            {id: id, url: url},
+            (message) => presentationConnection.receive(message.type, message.data)
+    ); 
   }
 };
 

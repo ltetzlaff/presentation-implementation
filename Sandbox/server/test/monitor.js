@@ -7,6 +7,7 @@ let chaiHttp = require('chai-http');
 let server = require('../server');
 let should = chai.should();
 
+var Browser = require('zombie');
 
 chai.use(chaiHttp);
 //Our parent block
@@ -14,6 +15,18 @@ describe('monitor', () => {
     /*
   * Test the /GET route
   */
+
+  describe('Host', function() {
+    before(function() {
+      this.server = http.createServer(app).listen(3000);
+      // initialize the browser using the same port as the test application
+      this.browser = new Browser({ site: 'http://localhost' });
+    });
+    // load the  receiver page
+    before(function(done) {
+      this.browser.visit('/receiver', done);
+    });
+    },
   describe('/GET monitors', () => {
     
       it('it should post a new monitors', () => {

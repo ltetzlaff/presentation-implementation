@@ -225,6 +225,8 @@ class PresentationConnection {
       .then((reference) => {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
+          // TODO: setup reciving handler here
+          //window.navigator.presentation.messageIncomingHandler(this.presentationId, presentationUrl, receive);
           fire(new Event("connect"), this);
         });
         return true;
