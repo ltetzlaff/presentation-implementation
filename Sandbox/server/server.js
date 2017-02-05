@@ -57,14 +57,19 @@ class Controller extends Entity {
   constructor(name) {
     super();
     this.name = name;
+
+    // [{Controller}]
+    this.controllers = [];
   }
 }
+
 // [{Receiver}]
 const receivers = [];
 // [{Controller}]
 const controllers = [];
 
 // ---   ROUTES   ---
+// {id: "Room1", name: "John Doe", url: "123.gg/room1"}
 const router = express.Router();
 
 // List all participants etc
@@ -95,9 +100,11 @@ router.post("/join", (req, res) => {
   parseQs(req);
   if (req.receiver) {
     req.receiver.receive("joined", req.query.name);
-    controllers.push(new Controller(req.query.name));
+    
+    let newController = new Controller(req.query.name);
+    req.receiver.freshControllers.push(newController);
+    controllers.push(newController);
   }
-  // {id: "Room1", name: "John Doe", url: "123.gg/room1"}
   res.send({});
 });
 
@@ -162,6 +169,24 @@ router.get("/getMail", (req, res) => {
     recipient.mailBox.removeListener("message", listenerFun);
     res.status(200).end("Timeout at: " + new Date().toLocaleTimeString());
   }, 5000);*/
+});
+
+
+/**
+ * Receivers monitors incoming presentation connections
+ * @param {string} id - receiver
+ */
+router.get("/didSomebodyJoinMe", (req, res) => {
+  parseQs(req);
+  let r = req.receiver;
+  let returnedList = [];
+  r.freshControllers.forEach(freshController => {
+    returnedList.push({id: r.id, name: freshController.name});
+  });
+  r.controllers = r.controllers.concat(r.freshControllers);
+  r.freshControllers = [];
+
+  res.send(returnedList);
 });
 
 /**

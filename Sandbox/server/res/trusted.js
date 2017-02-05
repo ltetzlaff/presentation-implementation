@@ -327,16 +327,17 @@ class Presentator extends Presentation {
 
 class ImplementationConfig {
   /**
-   * @param {String}  name          - human readable name of the implementation setup
-   * @param {Function<Promise>} monitor       - how do you seek out for new displays,
-   * @param {Function<Promise>} selectDisplay - select them,
-   * @param {Function<Promise>} createContext - connect to them,
-   * @param {Function<Promise>} connect       - connect to them,
-   * @param {Function<Promise>} send          - send messages to them,
-   * @param {Function<Promise>} receive       - receive messages (what to set up to achieve message retrieval)
-   * @param {Function<Promise>} close         - notify them to close connection
-   *
-   * @param {Function<Promise>} host          - optional, what happens if you instantiate a new receiver (tell some server maybe?)
+   * @param {String}  name                      - human readable name of the implementation setup
+   * @param {Function<Promise>} monitor         - how do you seek out for new displays,
+   * @param {Function<Promise>} selectDisplay   - [C] select them,
+   * @param {Function<Promise>} createContext   - [C] connect to them,
+   * @param {Function<Promise>} connect         - connect to them,
+   * @param {Function<Promise>} send            - send messages to them,
+   * @param {Function<Promise>} receive         - receive messages (what to set up to achieve message retrieval)
+   * @param {Function<Promise>} close           - notify them to close connection
+   * @param {Function<Promise>} monitorIncoming - [R] handle incoming connections (what to set up for this)
+   * 
+   * @param {Function<Promise>} host            - [R] optional, what happens if you instantiate a new receiver (tell some server maybe?)
    */
   constructor(name, handlers) {
     this.name                 = name;
@@ -347,6 +348,6 @@ class ImplementationConfig {
   }
 
   static Handlers() {
-    return ["monitor", "selectDisplay", "createContext", "connect", "send", "receive", "close", "host"];
+    return ["monitor", "selectDisplay", "createContext", "connect", "send", "receive", "close", "host", "monitorIncoming"];
   }
 }

@@ -55,6 +55,12 @@ const handlers = {
   host: (id, url, displayName) => {
     // Register Host on Server
     return ajax("post", server + "/host", {id: id, url: url, displayName: displayName}); 
+  },
+  monitorIncoming : (id, url, presentationReceiver) => {
+    ajaxLong(server + "/didSomebodyJoinMe",
+            {id: id, url: url},
+            (message) => message.forEach(joinedController => presentationReceiver.handleClient(joinedController.id))
+    ); 
   }
 };
 

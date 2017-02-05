@@ -453,6 +453,7 @@ class PresentationReceiver {
     if (window.navigator.presentation.hostHandler) {
       window.navigator.presentation.hostHandler(this.presentationId, presentationUrl, D.displayName);
     }
+    window.navigator.presentation.monitorIncomingHandler(this.presentationId, presentationUrl, this);
   }
   
   /**
@@ -460,13 +461,13 @@ class PresentationReceiver {
    * https://w3c.github.io/presentation-api/#monitoring-incoming-presentation-connections
    * @param {String} I - the presentation identifier passed by the controlling browsing context with the incoming connection request
    * @param {String} this.presentationId - the presentation identifier
-   * @param {String} presentationUrl - the presentation request url
+   * @param {String} this.presentationUrl - the presentation request url
    */
-  handleClient(I, presentationUrl) {
+  handleClient(I) {
     if (I !== this.presentationId) {
       return false;                                                 // 1.
     }
-    let S = new PresentationConnection(I, presentationUrl);         // 2. - 4.
+    let S = new PresentationConnection(I, this.presentationUrl);         // 2. - 4.
     S.establish().then(success => {                                 // 5. - 6.
       this.presentationControllers.push(S);                         // 7.
       if (this.controllersMonitor === null) {                       // 8.
