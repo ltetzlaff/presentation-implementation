@@ -61,7 +61,7 @@ class Presentator extends Presentation {
       clearInterval(this.continousMonitoring);
     }
     if (this.allowed == DiscoveryAllowance.continous) {
-      this.continousMonitoring = setInterval(() => {this.monitor(this.defaultRequest)}, this.SCAN_PERIOD);
+      this.continousMonitoring = setInterval(() => {console.log(location.href); this.monitor(this.defaultRequest)}, this.SCAN_PERIOD);
     }
   }
   
@@ -141,7 +141,7 @@ class Presentator extends Presentation {
   }
   
   /**
-   * 6.3.2. 8-10. https://w3c.github.io/presentation-api/#selecting-a-presentation-display
+   * 6.3.2.8-9. https://w3c.github.io/presentation-api/#selecting-a-presentation-display
    * @param {Array} presentationUrls
    * @return {Promise}
    */
@@ -174,7 +174,7 @@ class Presentator extends Presentation {
   }
   
   /**
-   * 6.3.2 9.
+   * 6.3.2.9
    * Let user select display and return it
    * @param {Array} presentationUrls
    * @return {Promise}
@@ -185,7 +185,7 @@ class Presentator extends Presentation {
       let couldConnectToAnUrl = this.urlsTest(presentationUrls);
       //console.log(empty, !couldConnectToAnUrl);
       if (empty || !couldConnectToAnUrl) {
-        reject(domEx("NOT_FOUND_ERROR"));
+        reject(domEx("NOT_FOUND_ERROR", "no available Presentation Displays"));
       } else {
         // Ask user which display shall be taken
         let displays = this.availablePresentationDisplays.map(apd => apd.display);
@@ -200,7 +200,7 @@ class Presentator extends Presentation {
    * 6.3.4 https://w3c.github.io/presentation-api/#dfn-start-a-presentation-connection
    * @param {PresentationRequest} presentationRequest
    * @param {PresentationDisplay} D
-   * @param {Promise} P - gets resolved with new PresentationConnection
+   * @param {Function} P - resolve-function of Promise, gets resolved with new PresentationConnection
    */
   startPresentationConnection(presentationRequest, D, P) {
     console.log("starting Connection to: ", D);
@@ -219,8 +219,8 @@ class Presentator extends Presentation {
     let S = new PresentationConnection(I, pUrl); // 2., 3., 6.
     this.controlledPresentations.push(S); // 7.
     
-    // 8. (see comment below)
-    //P.resolve(S); // this syntax is not supported so i wrapped the call to this function in a resolve and just return something to resolve to at the end of this
+    // 8.
+    P(S);
 
     // 9.
     queueTask(() => {
@@ -232,13 +232,6 @@ class Presentator extends Presentation {
     this.createContextHandler(pUrl)
     .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
     .then (() => S.establish()); /* 13. */
-    
-    // 8.
-    if (P) {
-      return S;
-    } else {
-      return false;
-    }
   }  
 
   /**

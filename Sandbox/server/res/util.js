@@ -214,8 +214,8 @@ function createContext(url) {
   return ifrm;
 }
 
-function domEx(id) {
-  console.error(new Error().stack);
+function domEx(id, msg) {
+  console.error(new Error(msg).stack);
   return new DOMException(DOMException[id]);
 }
 

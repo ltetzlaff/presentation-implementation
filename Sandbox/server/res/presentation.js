@@ -79,28 +79,25 @@ class PresentationRequest {
       if (!Browser.allowedToShowPopup()) {
         return reject(new InvalidAccessError()); // 1.
       }
-      if (Browser.isMixedContentMismatch(this.presentationUrls) || Browser.isSandboxedPresentation()) { // 2. - 4.
-        return reject(new SecurityError());
-      }
       
-      // 5.
-      let P = new Promise((resolve, reject) => {
-        // 7.
+      if (document.startPromise) {
+        return reject(new OperationError()); // 2.+3. (somewhat simplified)
+      }
+
+      // 4.
+      let P = new Promise((resolve, reject) => {    
+        // 6.
         if (!window.navigator.presentation.monitoring) {
           window.navigator.presentation.monitor(this);
         }
         
-        // 8.
-        window.navigator.presentation.letUserSelectDisplay(this.presentationUrls)
+        window.navigator.presentation.letUserSelectDisplay(this.presentationUrls) // 7-9.
         .then(D => {
           // 11. - 12.
-          let r = window.navigator.presentation.startPresentationConnection(this, D, P);
-          if (r) {
-            resolve(r);
-          }
+          window.navigator.presentation.startPresentationConnection(this, D, resolve);
         });
       });
-      return P; // 6.
+      return P; // 5.
     });
   }
   
@@ -436,14 +433,17 @@ class PresentationReceiver {
         return this.controllersPromise;
       } else {
         // 2.
+        let temp = null;
         this.controllersPromise = new Promise((resolve, reject) => {
+          temp = resolve;
           // #TODO: once the initial presentation connection is established
           // 4.
           if (this.controllersMonitor !== null) {
             resolve(this.controllersMonitor);
           }
         });
-        
+        this.controllersPromise.resolve = temp;
+
         // 3.
         return this.controllersPromise;
       }
