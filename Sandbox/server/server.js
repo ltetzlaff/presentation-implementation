@@ -51,6 +51,7 @@ class Receiver extends Entity {
     this.id = id;
     this.url = url;
     this.displayName = displayName;
+    this.freshControllers = [];
   }
 }
 class Controller extends Entity {
@@ -99,11 +100,10 @@ function parseQs(req) {
 router.post("/join", (req, res) => {
   parseQs(req);
   if (req.receiver) {
-    req.receiver.receive("joined", req.query.name);
-    
     let newController = new Controller(req.query.name);
     req.receiver.freshControllers.push(newController);
     controllers.push(newController);
+    req.receiver.receive("joined", req.query.name);
   }
   res.send({});
 });
@@ -179,14 +179,18 @@ router.get("/getMail", (req, res) => {
 router.get("/didSomebodyJoinMe", (req, res) => {
   parseQs(req);
   let r = req.receiver;
-  let returnedList = [];
-  r.freshControllers.forEach(freshController => {
-    returnedList.push({id: r.id, name: freshController.name});
-  });
-  r.controllers = r.controllers.concat(r.freshControllers);
-  r.freshControllers = [];
+  r.mailBox.removeAllListeners("joined").once("joined", () => {
+    let returnedList = [];
+    r.freshControllers.forEach(freshController => {
+      returnedList.push({id: r.id, name: freshController.name});
+    });
+    r.controllers = r.controllers.concat(r.freshControllers);
+    r.freshControllers = [];
 
-  res.send(returnedList);
+    res.send(returnedList);
+  })
+  
+  
 });
 
 /**
