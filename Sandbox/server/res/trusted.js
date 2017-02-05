@@ -328,7 +328,8 @@ class ImplementationConfig {
    * @param {Function<Promise>} send            - send messages to them,
    * @param {Function<Promise>} receive         - receive messages (what to set up to achieve message retrieval)
    * @param {Function<Promise>} close           - notify them to close connection
-   * @param {Function<Promise>} monitorIncoming - [R] handle incoming connections (what to set up for this)
+   * @param {Function<Promise>} monitorIncoming - [R] what to set up to be able to handle incoming connections
+   * @param {Function<Promise>} messageIncoming - what to set up to be able to handle incoming messages
    * 
    * @param {Function<Promise>} host            - [R] optional, what happens if you instantiate a new receiver (tell some server maybe?)
    */
@@ -341,6 +342,6 @@ class ImplementationConfig {
   }
 
   static Handlers() {
-    return ["monitor", "selectDisplay", "createContext", "connect", "send", "receive", "close", "host", "monitorIncoming"];
+    return ["monitor", "selectDisplay", "createContext", "connect", "send", "receive", "close", "host", "monitorIncoming", "messageIncoming"];
   }
 }

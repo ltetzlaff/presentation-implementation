@@ -223,7 +223,7 @@ class PresentationConnection {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
           // TODO: setup reciving handler here
-          //window.navigator.presentation.messageIncomingHandler(this.presentationId, presentationUrl, receive);
+          window.navigator.presentation.messageIncomingHandler(this.id, this.url, this);
           fire(new Event("connect"), this);
         });
         return true;
