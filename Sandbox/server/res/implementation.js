@@ -65,7 +65,7 @@ const handlers = {
   messageIncoming : (id, url, presentationConnection) => {
     ajaxLong(server + "/getMail",
             {id: id, url: url},
-            (message) => presentationConnection.receive(message.type, message.data)
+            (message) => presentationConnection.receive(PresentationMessageType.text, message.data)
     ); 
   }
 };

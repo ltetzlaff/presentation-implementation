@@ -161,7 +161,7 @@ router.get("/getMail", (req, res) => {
   let recipient = req.receiver || req.controller;
   if (recipient) {
     // Remove old listener bevor adding new one. Just in case the connection timed out    
-    recipient.mailBox.removeAllListeners("message").once("message", msg => res.json(msg)); // Answer after reciving a message, not before   
+    recipient.mailBox.removeAllListeners("message").once("message", msg => res.send(msg)); // Answer after reciving a message, not before   
   } else {
     res.status(404).send("Couldn't find recipient");
   }
