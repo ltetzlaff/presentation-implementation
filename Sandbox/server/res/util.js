@@ -204,7 +204,6 @@ function eq(x, y) {
  * @return {DOMElement}
  */
 function createContext(url) {
-  // #TODO sandbox flag etc
   let ifrm = document.createElement("iframe");
   // scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0">
   ifrm.setAttribute("src", url);
