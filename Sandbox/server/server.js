@@ -51,16 +51,17 @@ class Receiver extends Entity {
     this.id = id;
     this.url = url;
     this.displayName = displayName;
+    
+    // Keep track of controllers
     this.freshControllers = [];
+    // [{Controller}]
+    this.controllers = [];
   }
 }
 class Controller extends Entity {
   constructor(name) {
     super();
-    this.name = name;
-
-    // [{Controller}]
-    this.controllers = [];
+    this.name = name;  
   }
 }
 

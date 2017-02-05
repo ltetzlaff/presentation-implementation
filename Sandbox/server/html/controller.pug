@@ -1,57 +1,14 @@
 extends layout.pug
 
 block js
-  script.
-    let UI = {
-      disabledColor: "#999",
-      enabledColor: "#000",
-      connect: () => {
-        $("#connect").style.color = UI.disabledColor;
-        $("#disconnect").style.color = UI.enabledColor;
-      },
-      disconnect: () => {
-        $("#connect").style.color = UI.enabledColor;
-        $("#disconnect").style.color = UI.disabledColor;
-      }
-    }
-    ready(() => {
-      let p = window.navigator.presentation;
-
-      $("#discoveryAllowance").addEventListener("change", function() {
-        p.allowed = Number.parseInt(this.options[this.selectedIndex].value);
-        p.refreshContinousMonitoring();
-      });
-
-      $("#join").addEventListener("click", () => {
-        p.defaultRequest = new PresentationRequest($("#url").value);
-        p.onconnectionavailable = e => {
-          // Disconnect prior connections
-          // #TODO https://w3c.github.io/presentation-api/#monitor-connection-s-state-and-exchange-data-example
-
-          let conn = e.connection;
-          conn.onconnect = () => {
-            UI.connect();
-
-            conn.onmessage = messageEvent => {
-              console.log("received message:", messageEvent.data);
-              conn.send("Message Pingpong");
-            }
-          }
-          conn.onclose = () => {
-            UI.disconnect();
-          }
-        }
-
-        // Go
-        p.defaultRequest.getAvailability().then(a => {
-          console.log("availability: ", a);
-          p.defaultRequest.start().catch(e => console.log(e));
-        });
-      });
-    });
+  script(src="controller.js")
 block content
-  input#url(type="text",value="http://localhost/demoPage")
-  button#join Join
+  div
+    h3 Insert Url you want to see presented
+    input#url(type="text",value="http://localhost/demoPage")
+  div
+    h3 Hit Connect to select a display and start presentation
+    button#connect Connect
   div
     h3 Monitoring
     select#discoveryAllowance
