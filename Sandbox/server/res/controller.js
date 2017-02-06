@@ -21,7 +21,7 @@ ready(() => {
 
   $("#connect").addEventListener("click", () => {
     p.defaultRequest = new PresentationRequest($("#url").value);
-    p.onconnectionavailable = e => {
+    p.defaultRequest.onconnectionavailable = e => {
       // Disconnect prior connections
       // #TODO https://w3c.github.io/presentation-api/#monitor-connection-s-state-and-exchange-data-example
 
