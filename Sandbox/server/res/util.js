@@ -123,7 +123,7 @@ function addEventListeners(obj, eventNames) {
   }
   eventNames.forEach(name => {
     obj["on" + name] = null;
-    this.addEventListener(name, (e) => {
+    obj.addEventListener(name, (e) => {
       return obj["on" + name](e);
     });
   });
