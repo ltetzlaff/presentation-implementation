@@ -108,6 +108,8 @@ router.post("/join", (req, res) => {
     req.receiver.freshControllers.push(newController);
     controllers.push(newController);
     req.receiver.receive("joined", req.query.name);
+  } else {
+    console.warn("Trying to connect to non-existent Presentation, query:", req.query);
   }
   res.send({});
 });

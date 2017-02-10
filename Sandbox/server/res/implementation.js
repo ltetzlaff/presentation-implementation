@@ -37,26 +37,23 @@ const handlers = {
   monitor         :  () => ajax("get", server + "/monitor"),
   selectDisplay   :  (displays) => selectDisplayUI(displays),
   createContext   :  (url) => ajax("post", server + "/prepareRoom", {url: url}),
-  connect         :  (id, url) => ajax("post", server + "/join", {sessionId: id, url: url, name: CLIENT_NAME}),
-  send            :  (type, data, id, role) => ajax("post", server + "/sendMail", {type, data, id, role, name: CLIENT_NAME}),
+  connect         :  (id, url, role) => ajax("post", server + "/join", {id, url, role, name: CLIENT_NAME}),
+  send            :  (id, role, type, data) => ajax("post", server + "/sendMail", {type, data, id, role, name: CLIENT_NAME}),
   close: (conn, reason, message) => {
     // #TODO
     return Promise.reject()
   },
   host: (id, url, displayName) => {
-    // Register Host on Server
     return ajax("post", server + "/host", {id: id, url: url, displayName: displayName});
   },
   monitorIncoming : (id, url, presentationReceiver) => {
-    ajaxLong(server + "/didSomebodyJoinMe",
-            {id: id, url: url},
-            (message) => message.forEach(joinedController => presentationReceiver.handleClient(joinedController.id))
+    ajaxLong(server + "/didSomebodyJoinMe", {id, url},
+      (message) => message.forEach(joinedController => presentationReceiver.handleClient(joinedController.id))
     );
   },
-  messageIncoming : (id, me, presentationConnection) => {
-    ajaxLong(server + "/getMail",
-            {id: id, entity: me},
-            (message) => presentationConnection.receive(PresentationMessageType.text, message.data)
+  messageIncoming : (id, url, role, presentationConnection) => {
+    ajaxLong(server + "/getMail", {id, role},
+      (message) => presentationConnection.receive(PresentationMessageType.text, message.data)
     );
   }
 };

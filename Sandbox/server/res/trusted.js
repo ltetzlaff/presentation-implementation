@@ -137,9 +137,9 @@ class Presentator extends Presentation {
    * @param {string} id
    * @param {Role} role
    */
-  send(presentationMessageType, presentationMessageData, id, role) {
+  send(id, role, presentationMessageType, presentationMessageData) {
     // example: {string: 'Hello, world!', lang: 'en-US'}") from https://w3c.github.io/presentation-api/#passing-locale-information-with-a-message
-    return this.sendHandler(presentationMessageType, presentationMessageData, id, role);
+    return this.sendHandler(id, role, presentationMessageType, presentationMessageData);
   }
   
   /**
@@ -253,9 +253,9 @@ class Presentator extends Presentation {
    * 6.5.1
    * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
    */
-  connect(id, url) {
+  connect(id, url, role) {
     this.closing = false;
-    return this.connectHandler(id, url);
+    return this.connectHandler(id, url, role);
   }
   
   /**

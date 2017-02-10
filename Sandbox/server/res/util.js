@@ -95,7 +95,9 @@ function ajaxLong(url, initData, onsuccess){
   // #TODO onStop should be implemented
   //let runing = true;
 
-  ajax('GET', url, initData).then((message) => {
+  ajax('GET', url, initData)
+  .catch(() => ajaxLong(url, initData, onsuccess))
+  .then((message) => {
     switch (typeof onsuccess) {
       case "function":
         onsuccess(message);

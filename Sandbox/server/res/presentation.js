@@ -220,7 +220,7 @@ class PresentationConnection {
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    return window.navigator.presentation.connect(this.id, this.url)
+    return window.navigator.presentation.connect(this.id, this.url, this.role)
       .catch(() => {
         this.close(PresentationConnectionClosedReasons.error); // 4.
         return false;
@@ -228,7 +228,7 @@ class PresentationConnection {
       .then((reference) => {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
-          window.navigator.presentation.messageIncomingHandler(this.id, this.url, this);
+          window.navigator.presentation.messageIncomingHandler(this.id, this.url, this.role, this);
           fire(new Event("connect"), this);
         });
         return true;
@@ -266,7 +266,7 @@ class PresentationConnection {
       throw new Error("Unsupported message Type in PresentationRequest.send()");
     }
     
-    window.navigator.presentation.send(messageType, messageOrData, this.id, this.role).catch(err => { // 4.
+    window.navigator.presentation.send(this.id, this.role, messageType, messageOrData).catch(err => { // 4.
       this.close(PresentationConnectionClosedReasons.error, err); // 5.
     });
   }
