@@ -19,13 +19,27 @@ ready(() => {
     p.refreshContinousMonitoring();
   });
 
+  $("#stop").addEventListener("click", () => {
+    window.activeConnection.terminate();
+  });
+
+  $("#send").onchange = function() {
+    window.activeConnection.send(this.value);
+  };
+
+  $("#disconnect").addEventListener("click", () => {
+    window.activeConnection.close();
+  });
+
   $("#connect").addEventListener("click", () => {
     p.defaultRequest = new PresentationRequest($("#url").value);
     p.defaultRequest.onconnectionavailable = e => {
       // Disconnect prior connections
       // #TODO https://w3c.github.io/presentation-api/#monitor-connection-s-state-and-exchange-data-example
 
-      let conn = e.connection;
+      window.activeConnection = e.connection;
+      let conn = window.activeConnection;
+      
       conn.onconnect = () => {
         UI.connect();
 
