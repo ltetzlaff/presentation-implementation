@@ -1,6 +1,7 @@
 // require util.js
 
 // --- IMPLEMENTATION ---
+const Role = {Controller: 0, Receiver: 1};
 const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
 const PresentationConnectionClosedReasons = {error: 10, closed: 11, wentaway: 12};
 const PresentationMessageType = {binary: 20, text: 21};
@@ -28,8 +29,8 @@ class PresentationAvailability {
     implement(this, EventTarget);
     addEventListeners(this, "change");
 
-    /* 
-      Spec ambigous again: .value must only be set by https://w3c.github.io/presentation-api/#interface-presentationavailability but also by monitor()?? 
+    /*
+      Spec ambigous again: .value must only be set by https://w3c.github.io/presentation-api/#interface-presentationavailability but also by monitor()??
     */
     if (value !== undefined) {
       this.value = value;
@@ -85,7 +86,7 @@ class PresentationRequest {
       }
 
       // 4.
-      let P = new Promise((resolve, reject) => {    
+      let P = new Promise((resolve, reject) => {
         // 6.
         if (!window.navigator.presentation.monitoring) {
           window.navigator.presentation.monitor(this);
@@ -154,7 +155,7 @@ class PresentationRequest {
       window.navigator.presentation.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
       return window.navigator.presentation.monitor(this).then(() => { // 8.
         this.getAvailabilityPending = null;
-        return resolve(A);                                     // 9.  
+        return resolve(A);                                     // 9.
       });
     });
     
@@ -184,11 +185,15 @@ class PresentationConnection {
    * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
    * @param {String} id
    * @param {String} url
+   * @parma {Role} role
    * @param {PresentationConnectionState} state
    */
-  constructor(id, url) {
+  constructor(id, url, role) {
     implement(this, EventTarget);
     addEventListeners(this, ["connect", "close", "terminate", "message"]);
+
+    // which role of the presentation connection are we on right now
+    this.role = role;
 
     // {presentation identifier}
     readOnly(this, "id", id);
@@ -209,6 +214,7 @@ class PresentationConnection {
   establish() {
     // 1.
     if (this.state !== PresentationConnectionState.connecting) {
+      console.warn("Establishing but not connecting, aborting..");
       return;
     }
     
@@ -222,7 +228,6 @@ class PresentationConnection {
       .then((reference) => {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
-          // TODO: setup reciving handler here
           window.navigator.presentation.messageIncomingHandler(this.id, this.url, this);
           fire(new Event("connect"), this);
         });
@@ -237,6 +242,7 @@ class PresentationConnection {
    * @param {payload data} messageOrData
    */
   send(messageOrData) {
+    console.log(this.state, PresentationConnectionState);
     if (this.state !== PresentationConnectionState.connected) {
       throw domEx("INVALID_STATE_ERROR"); // 1.
     }
@@ -250,15 +256,17 @@ class PresentationConnection {
     let messageType = null;
     if (["ArrayBuffer", "ArrayBufferView", "Blob"].includes(messageOrData.constructor.name)) {
       messageType = PresentationMessageType.binary;
-    }
-    if (messageOrData.constructor.name === "String") {
+    } else if (messageOrData.constructor.name === "String") {
       messageType = PresentationMessageType.text;
+    } else if (messageOrData.constructor.name === "Object") {
+      messageType = PresentationMessageType.text;
+      messageOrData = JSON.stringify(messageOrData);
     }
     if (!messageType) {
       throw new Error("Unsupported message Type in PresentationRequest.send()");
     }
     
-    window.navigator.presentation.send(messageType, messageOrData).catch(err => { // 4.
+    window.navigator.presentation.send(messageType, messageOrData, this.id, this.role).catch(err => { // 4.
       this.close(PresentationConnectionClosedReasons.error, err); // 5.
     });
   }
@@ -311,7 +319,7 @@ class PresentationConnection {
       return;                                         // 1.
     }
     this.state = PresentationConnectionState.closed;  // 2.
-    window.navigator.presentation.send(PresentationMessageType.text, JSON.stringify({close: closeReason})); // 3.
+    this.send({close: closeReason}); // 3.
     if (closeReason != PresentationConnectionClosedReasons.wentaway) {
       window.navigator.presentation.close(this, closeReason, closeMessage); // 4.
     }
@@ -337,7 +345,7 @@ class PresentationConnection {
     });
     
     // 3.
-    window.navigator.presentation.send(PresentationMessageType.text, JSON.stringify({terminate: true}));
+    this.send({terminate: true});
   }
   
   /**
@@ -469,7 +477,7 @@ class PresentationReceiver {
     if (I !== this.presentationId) {
       return false;                                                 // 1.
     }
-    let S = new PresentationConnection(I, this.presentationUrl);         // 2. - 4.
+    let S = new PresentationConnection(I, this.presentationUrl, Role.Receiver); // 2. - 4.
     S.establish().then(success => {                                 // 5. - 6.
       this.presentationControllers.push(S);                         // 7.
       if (this.controllersMonitor === null) {                       // 8.

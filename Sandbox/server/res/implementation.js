@@ -28,45 +28,36 @@ let selectDisplayUI = (displays) => {
       displays.forEach(d => {
         displayNames.push(d.displayName);
       });
-      picker.contentWindow.postMessage(displayNames, "*");  
+      picker.contentWindow.postMessage(displayNames, "*");
     }
   });
-}; 
+};
 
 const handlers = {
   monitor         :  () => ajax("get", server + "/monitor"),
   selectDisplay   :  (displays) => selectDisplayUI(displays),
   createContext   :  (url) => ajax("post", server + "/prepareRoom", {url: url}),
   connect         :  (id, url) => ajax("post", server + "/join", {sessionId: id, url: url, name: CLIENT_NAME}),
-  send            :  (type, data) => Promise.reject(),
-  receive: (UA) => {
-    // #TODO
-    /*let fct = function() {
-      ajax("get", server + "/getMail").then(mail => {
-        UA.dispatchEvent(new Event("data", mail));
-      });
-      setTimeout(fct, 1000);
-    };*/
-  },
+  send            :  (type, data, id, role) => ajax("post", server + "/sendMail", {type, data, id, role, name: CLIENT_NAME}),
   close: (conn, reason, message) => {
     // #TODO
     return Promise.reject()
   },
   host: (id, url, displayName) => {
     // Register Host on Server
-    return ajax("post", server + "/host", {id: id, url: url, displayName: displayName}); 
+    return ajax("post", server + "/host", {id: id, url: url, displayName: displayName});
   },
   monitorIncoming : (id, url, presentationReceiver) => {
     ajaxLong(server + "/didSomebodyJoinMe",
             {id: id, url: url},
             (message) => message.forEach(joinedController => presentationReceiver.handleClient(joinedController.id))
-    ); 
+    );
   },
-  messageIncoming : (id, url, presentationConnection) => {
+  messageIncoming : (id, me, presentationConnection) => {
     ajaxLong(server + "/getMail",
-            {id: id, url: url},
+            {id: id, entity: me},
             (message) => presentationConnection.receive(PresentationMessageType.text, message.data)
-    ); 
+    );
   }
 };
 

@@ -61,9 +61,11 @@ class Receiver extends Entity {
 class Controller extends Entity {
   constructor(name) {
     super();
-    this.name = name;  
+    this.name = name;
   }
 }
+
+const Role = {Controller: 0, Receiver: 1};
 
 // [{Receiver}]
 const receivers = [];
@@ -92,6 +94,7 @@ function parseQs(req) {
                      receivers.find(r => r.url  === req.query.url) /*||
                      receivers.find(r => r.displayName === req.query.displayName)*/;
   req.controller = controllers.find(c => c.name === req.query.name);
+  req.role = req.query.role !== undefined ? Number.parseInt(req.query.role) : undefined;
 }
 
 /**
@@ -124,29 +127,37 @@ router.post("/prepareRoom", (req, res) => {
  * either of these as a recipient:
  * @param {string} id - receiver
  * @param {string} name - controller
- * 
- * the one from the above that was not used:
- * @param {string} from - controller/receiver
+ * @param {Role} role - which of the above two sends it
  */
 router.post("/sendMail", (req, res) => {
   parseQs(req);
-  if (req.receiver && req.controller) {
-    res.send("Ambigious recipient").end();
-    return;
+  console.log(req.query)
+  let recipients = [], initiator = null;
+  switch (req.role) {
+    case Role.Controller:
+      // Direct message to receiver
+      initiator = req.controller;
+      recipients = [req.receiver];
+      break;
+    case Role.Receiver:
+      // Broadcast to all controllers
+      initiator = req.receiver;
+      recipients = req.receiver.controllers;
+      break;
+    default:
+      res.status(401).send("Unknown Role " + req.role).end();
+      return;
   }
   
-  let from = req.query.from;
-  let initiator = receivers.find(r => r.id === from) || controllers.find(c => c.name === from);
-  let recipient = req.receiver || req.controller;
-  if (initiator == null){
-    res.status(401).send("No valid client").end();    
+  if (!initiator){
+    res.status(401).send("No valid client").end();
     return;
   }
-  if (recipient == null) {
+  if (!recipients.length) {
     res.status(404).send("Couldn't find recipient").end();
     return;
-  }  
-  initiator.send(recipient, 'message', req.body.msg);
+  }
+  recipients.forEach(recipient => initiator.send(recipient, 'message', req.body.msg));
   res.status(200).end();
   
 });
@@ -155,21 +166,18 @@ router.post("/sendMail", (req, res) => {
  * receive
  * @param {string} id - receiver
  * @param {string} name - controller
+ *
+ * @param {Role} role
  */
 router.get("/getMail", (req, res) => {
   parseQs(req);
   let recipient = req.receiver || req.controller;
   if (recipient) {
-    // Remove old listener bevor adding new one. Just in case the connection timed out    
-    recipient.mailBox.removeAllListeners("message").once("message", msg => res.send(msg)); // Answer after reciving a message, not before   
+    // Remove old listener bevor adding new one. Just in case the connection timed out
+    recipient.mailBox.removeAllListeners("message").once("message", msg => res.send(msg)); // Answer after receiving a message, not before
   } else {
     res.status(404).send("Couldn't find recipient");
   }
-  /*
-  setTimeout(function () {
-    recipient.mailBox.removeListener("message", listenerFun);
-    res.status(200).end("Timeout at: " + new Date().toLocaleTimeString());
-  }, 5000);*/
 });
 
 

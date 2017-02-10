@@ -134,10 +134,12 @@ class Presentator extends Presentation {
    * Using an implementation specific mechanism, transmit the contents of messageOrData as the presentation message data and messageType as the presentation message type to the destination browsing context.
    * @param {PresentationMessageType} presentationMessageType
    * @param {string|binary} presentationMessageData
+   * @param {string} id
+   * @param {Role} role
    */
-  send(presentationMessageType, presentationMessageData) {
+  send(presentationMessageType, presentationMessageData, id, role) {
     // example: {string: 'Hello, world!', lang: 'en-US'}") from https://w3c.github.io/presentation-api/#passing-locale-information-with-a-message
-    return this.sendHandler(presentationMessageType, presentationMessageData);
+    return this.sendHandler(presentationMessageType, presentationMessageData, id, role);
   }
   
   /**
@@ -216,7 +218,7 @@ class Presentator extends Presentation {
       }
     });
 
-    let S = new PresentationConnection(I, pUrl); // 2., 3., 6.
+    let S = new PresentationConnection(I, pUrl, Role.Controller); // 2., 3., 6.
     this.controlledPresentations.push(S); // 7.
     
     // 8.
@@ -232,7 +234,7 @@ class Presentator extends Presentation {
     this.createContextHandler(pUrl)
     .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
     .then (() => S.establish()); /* 13. */
-  }  
+  }
 
   /**
    * #TODO i dont get how to implement this as js uses reference-count garbage collection which cant be overridden or hooked into
@@ -253,12 +255,7 @@ class Presentator extends Presentation {
    */
   connect(id, url) {
     this.closing = false;
-    return this.connectHandler(id, url)/*.then(success => {
-      if (this.receiver !== null) {
-        this.receiver.handleClient(id, url);
-      }
-      return true;
-    })*/;
+    return this.connectHandler(id, url);
   }
   
   /**
@@ -275,8 +272,8 @@ class Presentator extends Presentation {
     queueTask(() => { // 2.
       this.closing = true;
       let states = [
-        PresentationConnectionState.closed, 
-        PresentationConnectionState.connecting, 
+        PresentationConnectionState.closed,
+        PresentationConnectionState.connecting,
         PresentationConnectionState.connected
       ];
       if (!(includes(states, presentationConnection.state))) {
@@ -326,11 +323,10 @@ class ImplementationConfig {
    * @param {Function<Promise>} createContext   - [C] connect to them,
    * @param {Function<Promise>} connect         - connect to them,
    * @param {Function<Promise>} send            - send messages to them,
-   * @param {Function<Promise>} receive         - receive messages (what to set up to achieve message retrieval)
    * @param {Function<Promise>} close           - notify them to close connection
    * @param {Function<Promise>} monitorIncoming - [R] what to set up to be able to handle incoming connections
    * @param {Function<Promise>} messageIncoming - what to set up to be able to handle incoming messages
-   * 
+   *
    * @param {Function<Promise>} host            - [R] optional, what happens if you instantiate a new receiver (tell some server maybe?)
    */
   constructor(name, handlers) {
@@ -342,6 +338,6 @@ class ImplementationConfig {
   }
 
   static Handlers() {
-    return ["monitor", "selectDisplay", "createContext", "connect", "send", "receive", "close", "host", "monitorIncoming", "messageIncoming"];
+    return ["monitor", "selectDisplay", "createContext", "connect", "send", "close", "host", "monitorIncoming", "messageIncoming"];
   }
 }
