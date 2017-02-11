@@ -26,6 +26,9 @@ e.use(bodyParser.urlencoded({ extended: false }));
 e.use(cookieParser());
 e.use(express.static(path.join(__dirname, 'res')));
 
+
+
+
 // ---   LOGIC    ---
 class Entity {
   constructor() {
@@ -59,9 +62,10 @@ class Receiver extends Entity {
   }
 }
 class Controller extends Entity {
-  constructor(name) {
+  constructor(name, sessionId) {
     super();
     this.name = name;
+    this.sessionId = sessionId;
   }
 }
 
@@ -104,10 +108,10 @@ function parseQs(req) {
 router.post("/join", (req, res) => {
   parseQs(req);
   if (req.receiver) {
-    let newController = new Controller(req.query.name);
+    let newController = new Controller(req.query.name, req.query.sessionId);
     req.receiver.freshControllers.push(newController);
     controllers.push(newController);
-    req.receiver.receive("joined", req.query.name);
+    req.receiver.receive("joined", req.query.name, req.query.sessionId);
   } else {
     console.warn("Trying to connect to non-existent Presentation, query:", req.query);
   }
@@ -159,7 +163,7 @@ router.post("/sendMail", (req, res) => {
     res.status(404).send("Couldn't find recipient").end();
     return;
   }
-  recipients.forEach(recipient => initiator.send(recipient, 'message', req.body.msg));
+  recipients.forEach(recipient => initiator.send(recipient, 'message' + req.query.sessionId, req.body.msg));
   res.status(200).end();
   
 });
@@ -176,7 +180,7 @@ router.get("/getMail", (req, res) => {
   let recipient = req.receiver || req.controller;
   if (recipient) {
     // Remove old listener bevor adding new one. Just in case the connection timed out
-    recipient.mailBox.removeAllListeners("message").once("message", msg => res.send(msg)); // Answer after receiving a message, not before
+    recipient.mailBox.removeAllListeners("message" + req.query.sessionId).once("message" + req.query.sessionId, msg => res.send(msg)); // Answer after receiving a message, not before
   } else {
     res.status(404).send("Couldn't find recipient");
   }
@@ -193,7 +197,7 @@ router.get("/didSomebodyJoinMe", (req, res) => {
   r.mailBox.removeAllListeners("joined").once("joined", () => {
     let returnedList = [];
     r.freshControllers.forEach(freshController => {
-      returnedList.push({id: r.id, name: freshController.name});
+      returnedList.push({id: r.id, name: freshController.name, sessionId: freshController.sessionId});
     });
     r.controllers = r.controllers.concat(r.freshControllers);
     r.freshControllers = [];

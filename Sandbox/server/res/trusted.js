@@ -218,7 +218,7 @@ class Presentator extends Presentation {
       }
     });
 
-    let S = new PresentationConnection(I, pUrl, Role.Controller); // 2., 3., 6.
+    let S = new PresentationConnection(I, pUrl, Role.Controller, guid()); // 2., 3., 6.
     this.controlledPresentations.push(S); // 7.
     
     // 8.
@@ -253,9 +253,9 @@ class Presentator extends Presentation {
    * 6.5.1
    * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
    */
-  connect(id, url, role) {
+  connect(id, url, role, sessionId) {
     this.closing = false;
-    return this.connectHandler(id, url, role);
+    return this.connectHandler(id, url, role, sessionId);
   }
   
   /**
