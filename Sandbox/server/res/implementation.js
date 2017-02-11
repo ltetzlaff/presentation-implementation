@@ -37,7 +37,7 @@ const handlers = {
   monitor         :  () => ajax("get", server + "/monitor"),
   selectDisplay   :  (displays) => selectDisplayUI(displays),
   createContext   :  (url) => ajax("post", server + "/prepareRoom", {url: url}),
-  connect         :  (id, url, role) => ajax("post", server + "/join", {id, url, role, name: CLIENT_NAME}),
+  connect         :  (id, url, role,sessionId) => ajax("post", server + "/join", {id, url, role, name: CLIENT_NAME, sessionId}),
   send            :  (id, role, type, data) => ajax("post", server + "/sendMail", {type, data, id, role, name: CLIENT_NAME}),
   close: (conn, reason, message) => {
     // #TODO
@@ -48,11 +48,12 @@ const handlers = {
   },
   monitorIncoming : (id, url, presentationReceiver) => {
     ajaxLong(server + "/didSomebodyJoinMe", {id, url},
-      (message) => message.forEach(joinedController => presentationReceiver.handleClient(joinedController.id))
-    );
+      (message) => message.forEach(joinedController => {
+        presentationReceiver.handleClient(joinedController.id, joinedController.sessionId)
+      }));
   },
-  messageIncoming : (id, url, role, presentationConnection) => {
-    ajaxLong(server + "/getMail", {id, role},
+  messageIncoming : (id, url, role, sessionId,presentationConnection) => {
+    ajaxLong(server + "/getMail", {id, role, sessionId},
       (message) => presentationConnection.receive(PresentationMessageType.text, message.data)
     );
   }

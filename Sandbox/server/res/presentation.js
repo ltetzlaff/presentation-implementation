@@ -30,7 +30,7 @@ class PresentationAvailability {
     addEventListeners(this, "change");
 
     /*
-      Spec ambigous again: .value must only be set by https://w3c.github.io/presentation-api/#interface-presentationavailability but also by monitor()??
+      Spec ambigous again: .value must only be set by https://w3c.github.sio/presentation-api/#interface-presentationavailability but also by monitor()??
     */
     if (value !== undefined) {
       this.value = value;
@@ -188,12 +188,15 @@ class PresentationConnection {
    * @parma {Role} role
    * @param {PresentationConnectionState} state
    */
-  constructor(id, url, role) {
+  constructor(id, url, role, sessionID) {
     implement(this, EventTarget);
     addEventListeners(this, ["connect", "close", "terminate", "message"]);
 
     // which role of the presentation connection are we on right now
     this.role = role;
+
+    // to seperate the different connections
+    this._sessionId = sessionID;
 
     // {presentation identifier}
     readOnly(this, "id", id);
@@ -220,7 +223,7 @@ class PresentationConnection {
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    return window.navigator.presentation.connect(this.id, this.url, this.role)
+    return window.navigator.presentation.connect(this.id, this.url, this.role, this._sessionId)
       .catch(() => {
         this.close(PresentationConnectionClosedReasons.error); // 4.
         return false;
@@ -228,7 +231,7 @@ class PresentationConnection {
       .then((reference) => {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
-          window.navigator.presentation.messageIncomingHandler(this.id, this.url, this.role, this);
+          window.navigator.presentation.messageIncomingHandler(this.id, this.url, this.role, this._sessionId, this);
           fire(new Event("connect"), this);
         });
         return true;
@@ -472,12 +475,13 @@ class PresentationReceiver {
    * @param {String} I - the presentation identifier passed by the controlling browsing context with the incoming connection request
    * @param {String} this.presentationId - the presentation identifier
    * @param {String} this.presentationUrl - the presentation request url
+   * @param {String} sessionId
    */
-  handleClient(I) {
+  handleClient(I, sessionId) {
     if (I !== this.presentationId) {
       return false;                                                 // 1.
     }
-    let S = new PresentationConnection(I, this.presentationUrl, Role.Receiver); // 2. - 4.
+    let S = new PresentationConnection(I, this.presentationUrl, Role.Receiver, sessionId); // 2. - 4.
     S.establish().then(success => {                                 // 5. - 6.
       this.presentationControllers.push(S);                         // 7.
       if (this.controllersMonitor === null) {                       // 8.
