@@ -83,7 +83,7 @@ function ajax(method, url, data) {
 }
 
 /**
- * Does long polling to a server 
+ * Does long polling to a server
  * @param {String} url destination to poll
  * @param {Object} initData the data which is beeing send every time
  * @param {Object|Function} onsuccess - Object (see below) OR a simple callback function that's executed on request success
@@ -95,10 +95,12 @@ function ajaxLong(url, initData, onsuccess){
   // #TODO onStop should be implemented
   //let runing = true;
 
-  ajax('GET', url, initData).then((message) => {    
+  ajax('GET', url, initData)
+  .catch(() => ajaxLong(url, initData, onsuccess))
+  .then((message) => {
     switch (typeof onsuccess) {
       case "function":
-        onsuccess(message);    
+        onsuccess(message);
         break;
       case "object":
         fire(new CustomEvent(onsuccess.name, {detail: message}), onsuccess.target);
@@ -123,8 +125,13 @@ function addEventListeners(obj, eventNames) {
   }
   eventNames.forEach(name => {
     obj["on" + name] = null;
-    this.addEventListener(name, (e) => {
-      return obj["on" + name](e);
+    obj.addEventListener(name, (e) => {
+      let handler = obj["on" + name];
+      if (handler && typeof handler === "function") {
+        handler(e);
+      } else {
+        console.warn("No handler assigned for " + name + " on Target:", obj);
+      }
     });
   });
 }
@@ -139,7 +146,7 @@ function implement(instance, I) {
     instance[prop] = I[prop];
   }
 
-  // This magic was found at and adapted from: http://stackoverflow.com/a/24216547 
+  // This magic was found at and adapted from: http://stackoverflow.com/a/24216547
   let eventTarget = document.createDocumentFragment();
   for (let prop in I.prototype) {
     instance[prop] = I.prototype[prop].bind(eventTarget);
@@ -150,7 +157,7 @@ function implement(instance, I) {
  * Overwrite dest and give it source's properties (assign doesnt take functions)
  * @param {Object} dest
  * @param {Object} source
- * @param {boolean} isDeep - do a deep copy or not 
+ * @param {boolean} isDeep - do a deep copy or not
  */
 function copy(dest, source, isDeep) {
   if (isDeep) {
