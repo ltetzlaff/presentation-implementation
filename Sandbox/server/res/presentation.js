@@ -122,9 +122,11 @@ class PresentationRequest {
    * @return {Promise<PresentationConnection>}
    */
   reconnect() {
-    return new Promise((resolve, reject) => {
-      // #TODO
-    });
+    // 1. - 2.
+    
+      return window.navigator.presentation.reconnect(this, id);
+  
+   
   }
   
   /**
