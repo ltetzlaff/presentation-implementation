@@ -117,16 +117,54 @@ class PresentationRequest {
   
   /**
    * 6.3.5
-   * https://w3c.github.io/presentation-api/#dom-presentationrequest-reconnect
-   * @param {}
-   * @return {Promise<PresentationConnection>}
+   * Reconnect to presentation
+   * https://w3c.github.io/presentation-api/#reconnecting-to-a-presentation
+   * @param {PresentationRequest} this
+   * @param {String} presentationId
    */
-  reconnect() {
-    // 1. - 2.
-    
-      return window.navigator.presentation.reconnect(this, id);
-  
-   
+  reconnect(presentationId) {
+    return new Promise((resolve, reject) => {
+      // 3.
+      let existingConnection = this.controlledPresentations.find((connection) => {
+                                // TODO: Its controlling browsing context is the current browsing context
+                                connection.state != PresentationConnectionState.terminated &&
+                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
+                                connection === presentationId
+                              });
+      // 4. -> 1.
+      if(existingConnection !== undefined){
+        resolve(existingConnection);  // 2.
+        // 3.
+        if(existingConnection.state == PresentationConnectionState.connecting || PresentationConnectionState.connected){
+          return;
+        }
+        // 4.
+        existingConnection.state = PresentationConnectionState.connecting;
+        PresentationConnectionState.establish();
+        return;
+      }
+
+      existingConnection = this.controlledPresentations.find((connection) => {
+                                // TODO: Its controlling browsing context is not the current browsing context
+                                connection.state != PresentationConnectionState.terminated &&
+                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
+                                connection === id
+                              });
+      if(existingConnection !== undefined){
+        let newConnection = new PresentationConnection(presentationId, existingConnection.url, Role.Controller, guid()); // 2. 3., 4.  
+        newConnection.state = state = PresentationConnectionState.connecting; // 5.
+        this.controlledPresentations.push(S); // 6.
+        resolve(newConnection); // 7.
+        // 8.
+        queueTask(() => {
+          let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: newConnection});
+          fire(event, this);
+        });
+        newConnection.establish();  // 9.
+        return;
+      }
+      reject(new NotFoundError());  // 7.
+    }); 
   }
   
   /**

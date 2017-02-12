@@ -259,58 +259,6 @@ class Presentator extends Presentation {
   }
   
   /**
-   * Reconnect to presentation
-   * https://w3c.github.io/presentation-api/#reconnecting-to-a-presentation
-   * @param {PresentationConnection} presentationConnection
-   * @param {PresentationConnectionClosedReasons} closeReason
-   * @param {string} closeMessage
-   */
-  reconnect(presentationRequest, I) {
-    return new Promise((resolve, reject) => {
-      // 3.
-      let existingConnection = this.controlledPresentations.find((connection) => {
-                                // TODO: Its controlling browsing context is the current browsing context
-                                connection.state != PresentationConnectionState.terminated &&
-                                presentationRequest.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
-                                connection === I
-                              });
-      // 4. -> 1.
-      if(existingConnection !== undefined){
-        resolve(existingConnection);  // 2.
-        // 3.
-        if(existingConnection.state == PresentationConnectionState.connecting || PresentationConnectionState.connected){
-          return;
-        }
-        // 4.
-        existingConnection.state = PresentationConnectionState.connecting;
-        PresentationConnectionState.establish();
-        return;
-      }
-
-      existingConnection = this.controlledPresentations.find((connection) => {
-                                // TODO: Its controlling browsing context is not the current browsing context
-                                connection.state != PresentationConnectionState.terminated &&
-                                presentationRequest.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
-                                connection === id
-                              });
-      if(existingConnection !== undefined){
-        let newConnection = new PresentationConnection(I, existingConnection.url, Role.Controller, guid()); // 2. 3., 4.  
-        newConnection.state = state = PresentationConnectionState.connecting; // 5.
-        this.controlledPresentations.push(S); // 6.
-        resolve(newConnection); // 7.
-        // 8.
-        queueTask(() => {
-          let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: newConnection});
-          fire(event, presentationRequest);
-        });
-        newConnection.establish();  // 9.
-        return;
-      }
-      reject(new NotFoundError());  // 7.
-    }); 
-  }
-  
-  /**
    * Notify other party to close the connection
    * https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
    * @param {PresentationConnection} presentationConnection
