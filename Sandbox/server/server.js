@@ -31,7 +31,7 @@ e.use(express.static(path.join(__dirname, 'res')));
 
 // ---   LOGIC    ---
 function makeHiddenProp(obj, propName, value) {
-  Object.defineProperty(obj, propName, {value: value, enumerable: false});
+  Object.defineProperty(obj, propName, {value: value, writable: true, enumerable: false});
 }
 
 class Entity {
@@ -147,7 +147,7 @@ router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
   if (d) {
     d.drain("joined", () => {
       let returnedList = [].concat(d.freshSessions);
-      d.sessions = d.sessions.concat(r.freshSessions);
+      d.sessions = d.sessions.concat(d.freshSessions);
       d.freshSessions = [];
       res.send(returnedList);
     });
@@ -193,7 +193,7 @@ router.post("/sendMail/:sessionId/:role", (req, res) => {
       recipient = req.display; // get receiver
       break;
     case Role.Receiver:
-      recipients = req.display.sessions.find(s => s.sessionId === req.params.sessionId); // get ctrl
+      recipient = req.display.getSession(req.params.sessionId); // get ctrl
       break;
     default:
       res.status(401).send("Unknown Role " + req.role).end();
