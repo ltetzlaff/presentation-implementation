@@ -97,7 +97,6 @@ router.param("presentationId", (req, res, next, presentationId) => {
 });
 router.param("sessionId", (req, res, next, sessionId) => {
   req.display = req.display || displays.find(d => d.getSession(sessionId));
-  console.log(req.display);
   next();
 });
 router.param("role", (req, res, next, role) => {
@@ -134,8 +133,12 @@ router.get("/monitor", (req, res) => {
 router.post("/prepareMyRoom/:displayId", (req, res) => {
   let b = req.body;
   req.display.presentationId = b.presentationId;
-  req.display.send("prepared", 
-    {display: req.display, url: b.url, presentationId: b.presentationId});
+  req.display.send("prepared", {
+      display: req.display,
+      url: b.url,
+      presentationId: b.presentationId,
+      sessionId: b.sessionId
+    });
   res.status(200).end();
 });
 
@@ -157,7 +160,6 @@ router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
  * req.body: {sessionId: GUID, controllerName: ""}
  */
 router.post("/join/:presentationId/:role", (req, res) => {
-  console.log("joining", req.body);
   let b = req.body;
   if (req.display && req.role === Role.Controller) {
     let newSession = new Controller(b.sessionId, b.controllerName);
@@ -165,7 +167,6 @@ router.post("/join/:presentationId/:role", (req, res) => {
     req.display.send("joined", 
       {presentationId: req.params.presentationId, controllerName: b.controllerName});
   }
-  console.log("joining2", req.body);
   res.status(200).end();
 });
 
