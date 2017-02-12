@@ -74,11 +74,12 @@ function ajax(method, url, data) {
       reject(404);
     }
     
-    r.open(method, url + querystring(data), true);
+    r.open(method, url, true);
+    r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     /*if (method === "POST") {
       r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     }*/
-    r.send();
+    r.send(JSON.stringify(data));
   });
 }
 
@@ -86,28 +87,34 @@ function ajax(method, url, data) {
  * Does long polling to a server
  * @param {String} url destination to poll
  * @param {Object} initData the data which is beeing send every time
- * @param {Object|Function} onsuccess - Object (see below) OR a simple callback function that's executed on request success
- *  @param {EventTarget} onsuccess.target - who receives the event
- *  @param {String}      onsuccess.name   - the name of the event which is beeing created when request succeeds
- *  @param {String}      onsuccess.onStop - is suppose to be the event the function listens to, to know when to stop
+ * @param {Object|Function} onSuccess - Object (see below) OR a simple callback function that's executed on request success
+ *  @param {EventTarget} onSuccess.target - who receives the event
+ *  @param {String}      onSuccess.name   - the name of the event which is beeing created when request succeeds
+ * @param {Function} onStop - if this evaluates to truthy stop the polling
  */
-function ajaxLong(url, initData, onsuccess){
-  // #TODO onStop should be implemented
-  //let runing = true;
+function ajaxLong(url, initData, onSuccess, onStop){
+  if (onStop !== undefined && typeof onStop === "Function") {
+    let result = onStop();
+    if (result) {
+      console.log("executed onStop: " + result, onStop);
+      return Promise.resolve(result);
+    }
+  }
 
-  ajax('GET', url, initData)
-  .catch(() => ajaxLong(url, initData, onsuccess))
+  
+  return ajax('GET', url, initData)
+  .catch(() => ajaxLong(url, initData, onSuccess))
   .then((message) => {
-    switch (typeof onsuccess) {
+    switch (typeof onSuccess) {
       case "function":
-        onsuccess(message);
+        onSuccess(message);
         break;
       case "object":
-        fire(new CustomEvent(onsuccess.name, {detail: message}), onsuccess.target);
+        fire(new CustomEvent(onSuccess.name, {detail: message}), onSuccess.target);
         break;
     }
 
-    ajaxLong(url, initData, onsuccess);
+    return ajaxLong(url, initData, onSuccess);
   });
 }
 

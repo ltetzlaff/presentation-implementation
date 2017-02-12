@@ -137,9 +137,9 @@ class Presentator extends Presentation {
    * @param {string} id
    * @param {Role} role
    */
-  send(id, role, presentationMessageType, presentationMessageData) {
+  send(id, sessionId, role, presentationMessageType, presentationMessageData) {
     // example: {string: 'Hello, world!', lang: 'en-US'}") from https://w3c.github.io/presentation-api/#passing-locale-information-with-a-message
-    return this.sendHandler(id, role, presentationMessageType, presentationMessageData);
+    return this.sendHandler(id, sessionId, role, presentationMessageType, presentationMessageData);
   }
   
   /**
@@ -206,7 +206,7 @@ class Presentator extends Presentation {
    */
   startPresentationConnection(presentationRequest, D, P) {
     console.log("starting Connection to: ", D);
-    let I = D.id;
+    let I = guid();
     let presentationUrls = presentationRequest.presentationUrls; // 4.
     let pUrl = "";
 
@@ -231,7 +231,7 @@ class Presentator extends Presentation {
     })
 
     // 10.+ 12.
-    this.createContextHandler(pUrl)
+    this.createContextHandler(D, pUrl, I)
     .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
     .then (() => S.establish()); /* 13. */
   }
@@ -253,9 +253,9 @@ class Presentator extends Presentation {
    * 6.5.1
    * The mechanism that is used to present on the remote display and connect the controlling browsing context with the presented document is an implementation choice of the user agent. The connection must provide a two-way messaging abstraction capable of carrying DOMString payloads in a reliable and in-order fashion.
    */
-  connect(id, url, role, sessionId) {
+  connect(id, sessionId, role) {
     this.closing = false;
-    return this.connectHandler(id, url, role, sessionId);
+    return this.connectHandler(id, sessionId, role);
   }
   
   /**
@@ -298,20 +298,11 @@ class Presentator extends Presentation {
     // #HACK faster than looking up proper reflection, ES6 assign doesnt take over methods ¯\_(ツ)_/¯
     ImplementationConfig.Handlers().forEach(h => {
       let handler = h + "Handler";
-      this._set(handler, ic[handler]);
+      this[handler] = ic[handler];
     });
-  }
-  
-  /**
-   * That's how the DeviceDiscovery shall work
-   * @param {Function<Promise>} handlerFct
-   */
-  _set(handlerName, handlerFct) {
-    this[handlerName] = handlerFct;
-    if (handlerName === "connectHandler") {
-      this.possible = true;
-      this.refreshContinousMonitoring();
-    }
+
+    this.possible = true;
+    this.refreshContinousMonitoring();
   }
 }
 

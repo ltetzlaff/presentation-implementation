@@ -30,198 +30,163 @@ e.use(express.static(path.join(__dirname, 'res')));
 
 
 // ---   LOGIC    ---
+function makeHiddenProp(obj, propName, value) {
+  Object.defineProperty(obj, propName, {value: value, enumerable: false});
+}
+
 class Entity {
   constructor() {
-    Object.defineProperty(this, "mailBox", {value: new EventEmitter(), enumerable: false});
+    makeHiddenProp(this, "mailBox", new EventEmitter());
   }
 
-  receive(type, data) {
-    this.mailBox.emit(type, JSON.stringify(data));
+  drain(type, cb) {
+    return this.mailBox.removeAllListeners(type).once(type, cb);
   }
-
-  send(receiver, type, msg) {
-    if (!(receiver instanceof Entity)) {
-      console.warn("Tried to send message to " + receiver + ", typeof " + typeof receiver);
-      return;
-    }
-    receiver.receive(type, msg);
+  send(type, msg) {
+    this.mailBox.emit(type, msg);
   }
 }
 
-class Receiver extends Entity {
-  constructor(id, url, displayName) {
-    super();
-    this.id = id;
-    this.url = url;
-    this.displayName = displayName;
-    
-    // Keep track of controllers
-    this.freshControllers = [];
-    // [{Controller}]
-    this.controllers = [];
-  }
-}
 class Controller extends Entity {
-  constructor(name, sessionId) {
+  constructor(sessionId, controllerName) {
     super();
-    this.name = name;
     this.sessionId = sessionId;
+    this.controllerName = controllerName;
   }
 }
 
-const Role = {Controller: 0, Receiver: 1};
+class Display extends Entity {
+  constructor(displayName, displayId) {
+    super();
+    this.displayName = displayName;
+    this.displayId = displayId;
+    this.presentationId = null; 
+    // this assumes that there's only one presentation per display because this will be the usual case
 
-// [{Receiver}]
-const receivers = [];
-// [{Controller}]
-const controllers = [];
+    // Keep track of controlling sessions
+    makeHiddenProp(this, "sessions", []); // [{sessionId: GUID, controllerName: ""}]
+    makeHiddenProp(this, "freshSessions", []);
+  }
+}
+
+const displays = []; // [{Display}]
 
 // ---   ROUTES   ---
-// {id: "Room1", name: "John Doe", url: "123.gg/room1"}
+const Role = {Controller: 0, Receiver: 1};
 const router = express.Router();
 
 // List all participants etc
-router.get("/", (req, res) => {
-  res.render("overview", {title: "Overview"});
-});
+router.get("/", (req, res) => res.render("overview", {title: "Overview"}));
 
 ["receiver", "demoPage", "controller"].forEach(page => {
-  router.get("/" + page, (req, res) => {
-    res.render(page, {title: page})
-  });
+  router.get("/" + page, (req, res) => res.render(page, {title: page}));
+});
+
+router.param("displayId", (req, res, next, displayId) => {
+  req.display = displays.find(d => d.displayId === displayId);
+  next();
+});
+router.param("presentationId", (req, res, next, presentationId) => {
+  req.display = req.display || displays.find(d => d.presentationId === presentationId);
+  next();
+});
+router.param("sessionId", (req, res, next, sessionId) => {
+  req.display = req.display || displays.find(d => d.sessions.find(s => s.sessionId === sessionId));
+  next();
+});
+router.param("role", (req, res, next, role) => {
+  req.role = Number.parseInt(role);
 })
 
-
-// Receiver
-function parseQs(req) {
-  req.receiver   =   receivers.find(r => r.id   === req.query.id) ||
-                     receivers.find(r => r.url  === req.query.url) /*||
-                     receivers.find(r => r.displayName === req.query.displayName)*/;
-  req.controller = controllers.find(c => c.name === req.query.name);
-  req.role = req.query.role !== undefined ? Number.parseInt(req.query.role) : undefined;
-}
-
 /**
- * connect
- * @param {string} id - receiver
+ * Receiver marks himself as host here
+ * req.body: {displayName: "", displayId: ""}
  */
-router.post("/join", (req, res) => {
-  parseQs(req);
-  if (req.receiver) {
-    let newController = new Controller(req.query.name, req.query.sessionId);
-    req.receiver.freshControllers.push(newController);
-    controllers.push(newController);
-    req.receiver.receive("joined", req.query.name, req.query.sessionId);
+router.post("/host", (req, res) => {
+  let b = req.body;
+  let display = displays.find(d => d.displayId === b.displayId);
+  if (display) {
+    display.displayName = b.displayName; // name has changed apparently
   } else {
-    console.warn("Trying to connect to non-existent Presentation, query:", req.query);
+    displays.push(new Display(b.displayName, b.displayId));
   }
-  res.send({});
+  res.status(200).end()
+});
+
+router.get("/didSomebodyPrepareMe/:displayId", (req, res) => {
+  req.display.drain("prepared", c => res.send(c)); // c = context creation info
+});
+
+router.get("/monitor", (req, res) => {
+  res.send(displays);
+});
+
+/** 
+ * req.body: {url: "", id: GUID}
+ */
+router.post("/prepareMyRoom/:displayId", (req, res) => {
+  let b = req.body;
+  req.display.presentationId = b.id;
+  req.display.send("prepared", {displayId: req.display, url: b.url, id: b.id});
+  res.status(200).end();
+});
+
+router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
+  let d = req.display;
+  d.drain("joined", () => {
+    let returnedList = [].concat(d.freshSessions);
+    d.sessions = d.sessions.concat(r.freshSessions);
+    d.freshSessions = [];
+    res.send(returnedList);
+  });
 });
 
 /**
- * createContext
- * @param {string} url - receiver
+ * req.body: {sessionId: GUID, controllerName: ""}
  */
-router.post("/prepareRoom", (req, res) => {
-  parseQs(req);
-  req.receiver.receive("createContext");
-  res.send({});
+router.post("/join/:presentationId/:role", (req, res) => {
+  let b = req.body;
+  if (req.display && req.role === Role.Controller) {
+    let newSession = new Controller(req.params.sessionId, b.controllerName);
+    req.display.freshSessions.push(newSession);
+    req.display.send("joined", 
+      {presentationId: req.params.presentationId, controllerName: b.controllerName});
+  }
+  res.status(200).end();
 });
 
-/**
- * send
- * either of these as a recipient:
- * @param {string} id - receiver
- * @param {string} name - controller
- * @param {Role} role - which of the above two sends it
- */
-router.post("/sendMail", (req, res) => {
-  parseQs(req);
-  console.log(req.query)
-  let recipients = [], initiator = null;
+router.get("/getMail/:sessionId/:role", (req, res) => {
+  let recipient;
   switch (req.role) {
     case Role.Controller:
-      // Direct message to receiver
-      initiator = req.controller;
-      recipients = [req.receiver];
+      recipient = req.display.sessions.find(s => s.sessionId === req.params.sessionId); // get ctrl
       break;
     case Role.Receiver:
-      // Broadcast to all controllers
-      initiator = req.receiver;
-      recipients = req.receiver.controllers;
+      recipient = req.display; // get receiver
+      break;
+    default:
+      res.status(401).send("Unknown Role " + req.role).end();
+      return;
+  }
+  recipient.drain("message", msg => res.send(msg));
+});
+
+router.post("/sendMail", (req, res) => {
+  let recipient;
+  switch (req.role) {
+    case Role.Controller:
+      recipient = req.display; // get receiver
+      break;
+    case Role.Receiver:
+      recipients = req.display.sessions.find(s => s.sessionId === req.params.sessionId); // get ctrl
       break;
     default:
       res.status(401).send("Unknown Role " + req.role).end();
       return;
   }
   
-  if (!initiator){
-    res.status(401).send("No valid client").end();
-    return;
-  }
-  if (!recipients.length) {
-    res.status(404).send("Couldn't find recipient").end();
-    return;
-  }
-  recipients.forEach(recipient => initiator.send(recipient, 'message' + req.query.sessionId, req.body.msg));
-  res.status(200).end();
-  
-});
-
-/**
- * receive
- * @param {string} id - receiver
- * @param {string} name - controller
- *
- * @param {Role} role
- */
-router.get("/getMail", (req, res) => {
-  parseQs(req);
-  let recipient = req.receiver || req.controller;
-  if (recipient) {
-    // Remove old listener bevor adding new one. Just in case the connection timed out
-    recipient.mailBox.removeAllListeners("message" + req.query.sessionId).once("message" + req.query.sessionId, msg => res.send(msg)); // Answer after receiving a message, not before
-  } else {
-    res.status(404).send("Couldn't find recipient");
-  }
-});
-
-
-/**
- * Receivers monitors incoming presentation connections
- * @param {string} id - receiver
- */
-router.get("/didSomebodyJoinMe", (req, res) => {
-  parseQs(req);
-  let r = req.receiver;
-  r.mailBox.removeAllListeners("joined").once("joined", () => {
-    let returnedList = [];
-    r.freshControllers.forEach(freshController => {
-      returnedList.push({id: r.id, name: freshController.name, sessionId: freshController.sessionId});
-    });
-    r.controllers = r.controllers.concat(r.freshControllers);
-    r.freshControllers = [];
-
-    res.send(returnedList);
-  })
-  
-  
-});
-
-/**
- * host
- * Receiver marks himself as host here
- * @param {string} id - receiver
- * @param {string} url - controller
- */
-router.post("/host", (req, res) => {
-  receivers.push(new Receiver(req.query.id, req.query.url, req.query.displayName));
-  res.status(200).end()
-});
-
-// Controller retrieves displays (receivers that are currently hosting)
-router.get("/monitor", (req, res) => {
-  res.send(receivers);
+  recipient.send("message", req.body.data)
+  res.status(200).end();  
 });
 
 e.use('/', router);
