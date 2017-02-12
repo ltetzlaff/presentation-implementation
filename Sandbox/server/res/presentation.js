@@ -455,7 +455,7 @@ class PresentationReceiver {
     });
 
     window.navigator.presentation.hostHandler(D)
-    .then(c => {console.log(c); this.createReceivingContext(c.display, c.url, c.presentationId)}); // c is the contextCreationInfo
+    .then(c => this.createReceivingContext(c.display, c.url, c.presentationId, c.sessionId)); // c is the contextCreationInfo
   }
   
   /**
@@ -465,19 +465,20 @@ class PresentationReceiver {
    * @param {PresentationDisplay} D
    * @param {String} presentationUrl - the presentation request url (should be in D)
    * @param {String} presentationId - the presentation identifier (gets generated on creation)
+   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
    */
-  createReceivingContext(D, presentationUrl, presentationId) {
+  createReceivingContext(D, presentationUrl, presentationId, sessionId) {
     // 1. - 11.
     let C = createContext(presentationUrl);
     this.window = C.contentWindow;
     
     // 12.
     window.navigator.presentation.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
-      this.handleClient(I, presentationId, presentationUrl)
+      this.handleClient(I, presentationId, presentationUrl, sessionId);
     });
     
     // Connect initiating controlling context
-    this.handleClient(presentationId, presentationId, presentationUrl)
+    this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
   }
 
   /**

@@ -231,7 +231,7 @@ class Presentator extends Presentation {
     })
 
     // 10.+ 12.
-    this.createContextHandler(D, pUrl, I)
+    this.createContextHandler(D, pUrl, I, S.sessionId)
     .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
     .then (() => S.establish()); /* 13. */
   }

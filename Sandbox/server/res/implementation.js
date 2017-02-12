@@ -60,8 +60,8 @@ const handlers = {
   },
   monitor         :  () => ajax("get", server + "/monitor"),
   selectDisplay   :  (displays) => selectDisplayUI(displays),
-  createContext   :  (display, url, presentationId) => {
-    return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId})
+  createContext   :  (display, url, presentationId, sessionId) => {
+    return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId, sessionId})
   },
   monitorIncoming : (id, url, cb) => {
     ajaxLong(server + "/didSomebodyJoinMe/" + id, null,
