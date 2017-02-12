@@ -48,8 +48,7 @@ function receiveMessage(event){
 
 class PresentationConnection{
     constructor(session_id){
-        implement(this, EventTarget);
-        addEventListeners(this, ["connect", "close", "terminate", "message"]);
+        implement(this, EventTarget);        
         this.session_id = session_id;
         this.onmessage = null;
         this.addEventListener(this, "message" + session_id, (data) =>{
