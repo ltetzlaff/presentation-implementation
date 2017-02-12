@@ -58,7 +58,7 @@ function ajax(method, url, data) {
         try {
           result = JSON.parse(this.response);
         } catch (e) {
-          console.warn(e);
+          //console.warn(e);
           result = this.response;
         } finally {
           resolve(result);
@@ -75,11 +75,21 @@ function ajax(method, url, data) {
     }
     
     r.open(method, url, true);
-    r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-    /*if (method === "POST") {
-      r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-    }*/
-    r.send(JSON.stringify(data));
+    
+    switch(data.constructor.name) {
+      case "Blob":
+        r.send(data);
+        break;
+      case "Object":
+        r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+        r.send(JSON.stringify(data));    
+        break;
+      case "String":
+      default:
+        r.setRequestHeader('Content-Type', 'text/plain; charset=UTF-8');
+        r.send(data);
+        break;
+    }
   });
 }
 
