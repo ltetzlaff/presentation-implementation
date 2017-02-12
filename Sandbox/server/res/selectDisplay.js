@@ -8,17 +8,17 @@ window.addEventListener("message", e => {
   });
 });
 
-function populateDisplayList(displayNames) {
+function populateDisplayList(displays) {
   let ul = $("#displays");
-  displayNames.forEach(displayName => {
+  displays.forEach(display => {
     // One Line per Display
     let li = document.createElement("li");
-    li.innerHTML = displayName;
-
+    li.innerHTML = display.displayName + " (" + display.displayId + ")";
+    li.setAttribute("displayId", display.displayId);
     // Attach Click Listener
     li.addEventListener("click", (e) => {
       if (parent !== null) {
-        let clicked = e.target.innerHTML;
+        let clicked = e.target.getAttribute("displayId");
         parent.postMessage(clicked, origin);
       }
     });

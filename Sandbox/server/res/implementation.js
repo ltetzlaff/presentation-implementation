@@ -17,18 +17,14 @@ let selectDisplayUI = (displays) => {
         window.removeEventListener("message", this);
         picker.remove();
 
-        let selectedDisplay = displays.find(d => d.displayName === e.data);
+        let selectedDisplay = displays.find(d => d.displayId === e.data);
         resolve(selectedDisplay);
       }
     });
     
     // Communication to iframe (send displays to choose from)
     picker.onload = () => {
-      let displayNames = [];
-      displays.forEach(d => {
-        displayNames.push(d.displayName);
-      });
-      picker.contentWindow.postMessage(displayNames, "*");
+      picker.contentWindow.postMessage(displays, "*");
     }
   });
 };

@@ -234,7 +234,7 @@ class PresentationConnection {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
           p.messageIncomingHandler(this.sessionId, this.role,
-            (message) => this.receive(PresentationMessageType.text, message.data));
+            (message) => this.receive(PresentationMessageType.text, message));
           fire(new Event("connect"), this);
         });
         return true;
@@ -287,7 +287,7 @@ class PresentationConnection {
     if (this.state !== PresentationConnectionState.connected) {
       return; // 1.
     }
-    
+  
     // 2.+3.
     let msgEventInit = {};
     //implement(msgEventInit, MessageEventInit); // this is not defined?
@@ -433,26 +433,30 @@ class PresentationReceiver {
     // provides the presentation controllers monitor once the initial presentation connection is established.
     this.controllersPromise = null; // {Promise<PresentationConnectionList>}
     
-    this.connectionList = new Promise((resolve, reject) => {
-      if (this.controllersPromise !== null) {
-        // 1.
-        return this.controllersPromise;
-      } else {
-        // 2.
-        let temp = null;
-        this.controllersPromise = new Promise((resolve, reject) => {
-          temp = resolve;
+    Object.defineProperty(this, "connectionList", {
+      get: function() {
+        console.log(new Date().toTimeString(), this.controllersPromise)
+        if (this.controllersPromise !== null) {
+          // 1.
+          return this.controllersPromise;
+        } else {
+          // 2.
+          let temp = null;
+          this.controllersPromise = new Promise((resolve, reject) => {
+            temp = resolve;
+          });
+          this.controllersPromise.resolve = temp;
+
           // 4.
           if (this.controllersMonitor !== null) {
-            resolve(this.controllersMonitor);
+            this.controllersPromise.resolve(this.controllersMonitor);
           }
-        });
-        this.controllersPromise.resolve = temp;
 
-        // 3.
-        return this.controllersPromise;
+          // 3.
+          return this.controllersPromise;
+        }
       }
-    });
+    }); 
 
     window.navigator.presentation.hostHandler(D)
     .then(c => this.createReceivingContext(c.display, c.url, c.presentationId, c.sessionId)); // c is the contextCreationInfo
