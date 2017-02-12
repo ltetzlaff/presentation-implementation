@@ -45,7 +45,7 @@ ready(() => {
 
         conn.onmessage = messageEvent => {
           console.log("received message:", messageEvent.data);
-          conn.send("Message Pingpong");
+          //conn.send("Message Pingpong");
         }
       }
       conn.onclose = () => {
