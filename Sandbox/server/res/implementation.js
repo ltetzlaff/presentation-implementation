@@ -60,8 +60,8 @@ const handlers = {
   },
   monitor         :  () => ajax("get", server + "/monitor"),
   selectDisplay   :  (displays) => selectDisplayUI(displays),
-  createContext   :  (display, url, id) => {
-    return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, id})
+  createContext   :  (display, url, presentationId) => {
+    return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId})
   },
   monitorIncoming : (id, url, cb) => {
     ajaxLong(server + "/didSomebodyJoinMe/" + id, null,
@@ -71,7 +71,7 @@ const handlers = {
   connect         :  (id, sessionId, role) => {
     return ajax("post", server + "/join/" + id + "/" + role, {sessionId, controllerName: CLIENT_NAME})
   },
-  messageIncoming : (id, url, role, sessionId, cb) => {
+  messageIncoming : (sessionId, role, cb) => {
     ajaxLong(server + "/getMail/" + sessionId + "/" + role, null, (message) => cb(message));
   },
   send            :  (id, sessionId, role, type, data) => {

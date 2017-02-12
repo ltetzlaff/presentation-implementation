@@ -455,7 +455,7 @@ class PresentationReceiver {
     });
 
     window.navigator.presentation.hostHandler(D)
-    .then(c => this.createReceivingContext(c.display, c.url, c.id)); // c is the contextCreationInfo
+    .then(c => {console.log(c); this.createReceivingContext(c.display, c.url, c.presentationId)}); // c is the contextCreationInfo
   }
   
   /**
@@ -474,7 +474,10 @@ class PresentationReceiver {
     // 12.
     window.navigator.presentation.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
       this.handleClient(I, presentationId, presentationUrl)
-    });    
+    });
+    
+    // Connect initiating controlling context
+    this.handleClient(presentationId, presentationId, presentationUrl)
   }
 
   /**

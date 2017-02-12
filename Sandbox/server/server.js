@@ -67,6 +67,11 @@ class Display extends Entity {
     makeHiddenProp(this, "sessions", []); // [{sessionId: GUID, controllerName: ""}]
     makeHiddenProp(this, "freshSessions", []);
   }
+
+  getSession(sessionId) {
+    return this.sessions.find(s => s.sessionId === sessionId) ||
+      this.freshSessions.find(s => s.sessionId === sessionId);
+  }
 }
 
 const displays = []; // [{Display}]
@@ -91,11 +96,13 @@ router.param("presentationId", (req, res, next, presentationId) => {
   next();
 });
 router.param("sessionId", (req, res, next, sessionId) => {
-  req.display = req.display || displays.find(d => d.sessions.find(s => s.sessionId === sessionId));
+  req.display = req.display || displays.find(d => d.getSession(sessionId));
+  console.log(req.display);
   next();
 });
 router.param("role", (req, res, next, role) => {
   req.role = Number.parseInt(role);
+  next();
 })
 
 /**
@@ -126,32 +133,39 @@ router.get("/monitor", (req, res) => {
  */
 router.post("/prepareMyRoom/:displayId", (req, res) => {
   let b = req.body;
-  req.display.presentationId = b.id;
-  req.display.send("prepared", {displayId: req.display, url: b.url, id: b.id});
+  req.display.presentationId = b.presentationId;
+  req.display.send("prepared", 
+    {display: req.display, url: b.url, presentationId: b.presentationId});
   res.status(200).end();
 });
 
 router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
   let d = req.display;
-  d.drain("joined", () => {
-    let returnedList = [].concat(d.freshSessions);
-    d.sessions = d.sessions.concat(r.freshSessions);
-    d.freshSessions = [];
-    res.send(returnedList);
-  });
+  if (d) {
+    d.drain("joined", () => {
+      let returnedList = [].concat(d.freshSessions);
+      d.sessions = d.sessions.concat(r.freshSessions);
+      d.freshSessions = [];
+      res.send(returnedList);
+    });
+  } else {
+    res.status(401).end();
+  }
 });
 
 /**
  * req.body: {sessionId: GUID, controllerName: ""}
  */
 router.post("/join/:presentationId/:role", (req, res) => {
+  console.log("joining", req.body);
   let b = req.body;
   if (req.display && req.role === Role.Controller) {
-    let newSession = new Controller(req.params.sessionId, b.controllerName);
+    let newSession = new Controller(b.sessionId, b.controllerName);
     req.display.freshSessions.push(newSession);
     req.display.send("joined", 
       {presentationId: req.params.presentationId, controllerName: b.controllerName});
   }
+  console.log("joining2", req.body);
   res.status(200).end();
 });
 
@@ -159,7 +173,7 @@ router.get("/getMail/:sessionId/:role", (req, res) => {
   let recipient;
   switch (req.role) {
     case Role.Controller:
-      recipient = req.display.sessions.find(s => s.sessionId === req.params.sessionId); // get ctrl
+      recipient = req.display.getSession(req.params.sessionId); // get ctrl
       break;
     case Role.Receiver:
       recipient = req.display; // get receiver
@@ -171,7 +185,7 @@ router.get("/getMail/:sessionId/:role", (req, res) => {
   recipient.drain("message", msg => res.send(msg));
 });
 
-router.post("/sendMail", (req, res) => {
+router.post("/sendMail/:sessionId/:role", (req, res) => {
   let recipient;
   switch (req.role) {
     case Role.Controller:
