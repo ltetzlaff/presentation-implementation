@@ -93,17 +93,15 @@ function ajax(method, url, data) {
  * @param {Function} onStop - if this evaluates to truthy stop the polling
  */
 function ajaxLong(url, initData, onSuccess, onStop){
-  if (onStop !== undefined && typeof onStop === "Function") {
+  if (onStop !== undefined && typeof onStop === "function") {
     let result = onStop();
     if (result) {
-      console.log("executed onStop: " + result, onStop);
       return Promise.resolve(result);
     }
   }
 
-  
   return ajax('GET', url, initData)
-  .catch(() => ajaxLong(url, initData, onSuccess))
+  .catch(() => setTimeout(() => ajaxLong(url, initData, onSuccess, onStop), 1000))
   .then((message) => {
     switch (typeof onSuccess) {
       case "function":
@@ -114,7 +112,7 @@ function ajaxLong(url, initData, onSuccess, onStop){
         break;
     }
 
-    return ajaxLong(url, initData, onSuccess);
+    return ajaxLong(url, initData, onSuccess, onStop);
   });
 }
 
