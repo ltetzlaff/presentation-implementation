@@ -1,12 +1,19 @@
 let p = window.navigator.presentation;
+p.allowed = DiscoveryAllowance.none;
+p.refreshContinousMonitoring();
+
+// Whoever has this script loaded is a Presentation.
+// .receiver can be accessed to retrieve reference to the 'receiving browsing context'
+let D = {displayName: "Display One", displayId: guid()};
+p.receiver = new PresentationReceiver(D);
+
 ready(() => {
-  $("#host").addEventListener("click", () => {
-    let select = $("#displaySelector");
-    let display = JSON.parse(select.options[select.selectedIndex].value);
-    p.allowed = DiscoveryAllowance.none;
-    p.refreshContinousMonitoring();
-    p.receiver = new PresentationReceiver(display);
-    
+  $("#displayDescription").innerHTML = D.displayName;
+});  
+
+// #TODO send me to "http://localhost/demoPage"
+
+    /*
     // Example code
     var addConnection = function(connection) {
       this.onmessage = function (message) {
@@ -23,5 +30,4 @@ ready(() => {
         addConnection(evt.connection);
       };
     });
-  });
-});
+  });*/

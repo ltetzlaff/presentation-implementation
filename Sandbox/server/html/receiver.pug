@@ -3,8 +3,4 @@ extends layout.pug
 block js
   script(src="receiver.js")    
 block content
-  - var displays = [{displayName: "Display One", url: "http://localhost/demoPage"}, {displayName: "Wireless Display", url: "http://localhost/displays/wireless"}];  
-  select#displaySelector
-    each display in displays
-      option(value=display)= display.displayName
-  button#host Host
+  div#displayDescription

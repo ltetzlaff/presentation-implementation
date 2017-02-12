@@ -183,12 +183,13 @@ class PresentationConnection {
   /**
    * 6.5
    * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
-   * @param {String} id
-   * @param {String} url
-   * @parma {Role} role
+   * @param {String} id - presentation id
+   * @param {String} url - presentation url
+   * @param {Role} role
+   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
    * @param {PresentationConnectionState} state
    */
-  constructor(id, url, role, sessionID) {
+  constructor(id, url, role, sessionId) {
     implement(this, EventTarget);
     addEventListeners(this, ["connect", "close", "terminate", "message"]);
 
@@ -196,7 +197,7 @@ class PresentationConnection {
     this.role = role;
 
     // to seperate the different connections
-    this._sessionId = sessionID;
+    this.sessionId = sessionId;
 
     // {presentation identifier}
     readOnly(this, "id", id);
@@ -223,7 +224,8 @@ class PresentationConnection {
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    return window.navigator.presentation.connect(this.id, this.url, this.role, this._sessionId)
+    let p = window.navigator.presentation;
+    return p.connect(this.id, this.sessionId, this.role)
       .catch(() => {
         this.close(PresentationConnectionClosedReasons.error); // 4.
         return false;
@@ -231,7 +233,8 @@ class PresentationConnection {
       .then((reference) => {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
-          window.navigator.presentation.messageIncomingHandler(this.id, this.url, this.role, this._sessionId, this);
+          p.messageIncomingHandler(this.sessionId, this.role,
+            (message) => this.receive(PresentationMessageType.text, message.data));
           fire(new Event("connect"), this);
         });
         return true;
@@ -245,7 +248,6 @@ class PresentationConnection {
    * @param {payload data} messageOrData
    */
   send(messageOrData) {
-    console.log(this.state, PresentationConnectionState);
     if (this.state !== PresentationConnectionState.connected) {
       throw domEx("INVALID_STATE_ERROR"); // 1.
     }
@@ -266,10 +268,10 @@ class PresentationConnection {
       messageOrData = JSON.stringify(messageOrData);
     }
     if (!messageType) {
-      throw new Error("Unsupported message Type in PresentationRequest.send()");
+      throw new Error("Unsupported message Type in PresentationRequest.send");
     }
     
-    window.navigator.presentation.send(this.id, this.role, messageType, messageOrData).catch(err => { // 4.
+    window.navigator.presentation.send(this.id, this.sessionId, this.role, messageType, messageOrData).catch(err => { // 4.
       this.close(PresentationConnectionClosedReasons.error, err); // 5.
     });
   }
@@ -322,7 +324,7 @@ class PresentationConnection {
       return;                                         // 1.
     }
     this.state = PresentationConnectionState.closed;  // 2.
-    this.send({close: closeReason}); // 3.
+    this.send({category: "control", command: "close", detail: "closeReason"}); // 3.
     if (closeReason != PresentationConnectionClosedReasons.wentaway) {
       window.navigator.presentation.close(this, closeReason, closeMessage); // 4.
     }
@@ -416,18 +418,11 @@ class PresentationConnectionCloseEventInit {
  */
 class PresentationReceiver {
   /**
-   * 6.6 + 6.6.1
-   * create receiver
-   * https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context
-   * @param {PresentationDisplay} D
-   * @param {String} presentationUrl - the presentation request url (should be in D)
-   * @param {String} presentationId - the presentation identifier (gets generated on creation)
+   * 6.6
+   * create receiver inside {ReceivingContext}
+   * @param {Display} D - has a human-readable name
    */
-  constructor(D/*, presentationUrl, presentationId*/) {
-    this.presentationId = guid() /*presentationId*/;
-    let presentationUrl = D.url;
-    
-    // 6.6
+  constructor(D) {
     // Contains the presentation connections created by a receiving browsing context for the receiving user agent.
     // All presentation connections in this set share the same presentation URL and presentation identifier.
     this.presentationControllers = []; // {[PresentationConnection]}
@@ -447,7 +442,6 @@ class PresentationReceiver {
         let temp = null;
         this.controllersPromise = new Promise((resolve, reject) => {
           temp = resolve;
-          // #TODO: once the initial presentation connection is established
           // 4.
           if (this.controllersMonitor !== null) {
             resolve(this.controllersMonitor);
@@ -459,29 +453,43 @@ class PresentationReceiver {
         return this.controllersPromise;
       }
     });
-    
-    // 6.6.1
-    // #TODO i dont want to implement https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context :)
-    let C = createContext(presentationUrl);
-    if (window.navigator.presentation.hostHandler) {
-      window.navigator.presentation.hostHandler(this.presentationId, presentationUrl, D.displayName);
-    }
-    window.navigator.presentation.monitorIncomingHandler(this.presentationId, presentationUrl, this);
+
+    window.navigator.presentation.hostHandler(D)
+    .then(c => this.createReceivingContext(c.display, c.url, c.id)); // c is the contextCreationInfo
   }
   
+  /**
+   * 6.6.1 
+   * actually there's a lot more #todo but i dont want to implement these steps by hand so lets use an iframe
+   * https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context
+   * @param {PresentationDisplay} D
+   * @param {String} presentationUrl - the presentation request url (should be in D)
+   * @param {String} presentationId - the presentation identifier (gets generated on creation)
+   */
+  createReceivingContext(D, presentationUrl, presentationId) {
+    // 1. - 11.
+    let C = createContext(presentationUrl);
+    this.window = C.contentWindow;
+    
+    // 12.
+    window.navigator.presentation.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
+      this.handleClient(I, presentationId, presentationUrl)
+    });    
+  }
+
   /**
    * 6.7.1
    * https://w3c.github.io/presentation-api/#monitoring-incoming-presentation-connections
    * @param {String} I - the presentation identifier passed by the controlling browsing context with the incoming connection request
-   * @param {String} this.presentationId - the presentation identifier
-   * @param {String} this.presentationUrl - the presentation request url
-   * @param {String} sessionId
+   * @param {String} this.presentationId - the presentation identifier used on context creation
+   * @param {String} this.presentationUrl - the presentation request url used on context creation
+   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
    */
-  handleClient(I, sessionId) {
-    if (I !== this.presentationId) {
+  handleClient(I, presentationId, presentationUrl, sessionId) {
+    if (I !== presentationId) {
       return false;                                                 // 1.
     }
-    let S = new PresentationConnection(I, this.presentationUrl, Role.Receiver, sessionId); // 2. - 4.
+    let S = new PresentationConnection(I, presentationUrl, Role.Receiver, sessionId); // 2. - 4.
     S.establish().then(success => {                                 // 5. - 6.
       this.presentationControllers.push(S);                         // 7.
       if (this.controllersMonitor === null) {                       // 8.
