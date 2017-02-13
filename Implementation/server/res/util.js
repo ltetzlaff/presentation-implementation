@@ -1,8 +1,12 @@
 function serialize(obj) {
-  obj.deserializeTo = obj.constructor.name;
-  return JSON.stringify(obj);
+  return JSON.stringify(serializeClass(obj));
 }
   
+function serializeClass(obj) {
+  obj.deserializeTo = obj.constructor.name;
+  return obj;
+}
+
 function deserialize(str) {
   let obj = JSON.parse(str);
   return deserializeClass(obj);
