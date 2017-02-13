@@ -9,6 +9,14 @@ angular.module('controller.controllers', [])
     VIDEO : 4
   };
 
+  var connection = undefined;
+
+  handleAvailabilityChange = function(available) {
+    $scope.isCastAvailable = available ? true : false;
+  };
+    
+
+
   timerTick = function() {
       setTimeout(function() {
         if (!$scope.runTimer) { return; }
@@ -109,12 +117,79 @@ angular.module('controller.controllers', [])
   };
 
   send = function(type, msg) {
-
+    if(connection != undefined){
+      connection.send({
+        type: type,
+        msg: msg
+      });
+    }
   };
 
   onReceive = function (type, message) {
 
   };
+
+  $scope.startCast = function (){
+    $scope.request.start().then(setConnection)
+  }
+
+  $scope.stopCast = function () {
+    if(connection !=  undefined){
+      connection.close();
+    }    
+  }
+
+  setConnection = function (newConnection) {
+    // Disconnect from existing presentation, if not attempting to reconnect
+    if (connection && connection != newConnection && connection.state != 'closed') {
+      connection.onclosed = undefined;
+      connection.close();
+    }
+
+    // Set the new connection and save the presentation ID
+    connection = newConnection;
+    $state.presId = connection.id;
+
+    
+    // Monitor the connection state
+    connection.onconnect = _ => {
+      $scope.isCasting = true;
+
+      // Register message handler
+      connection.onmessage = message => {
+        console.log(`Received message: ${message.data}`);
+      };
+
+      // Send initial message to presentation page
+      connection.send({
+        type: TYPE.HINT,
+        msg: "Say hello"});
+    };
+
+    connection.onclose = _ => {
+      connection = null;
+      $scope.isCasting = false;
+    };
+
+    connection.onterminate = _ => {      
+      $state.presId = null;
+      connection = null;
+      $scope.isCasting = false;
+    };
+  };
+
+  initPresentation = function (){
+    $scope.request = new PresentationRequest($scope.presUrls);
+    $scope.request.getAvailability().then(function(availability) {
+      handleAvailabilityChange(availability.value);
+      availability.onchange = function() { 
+        handleAvailabilityChange(this.value); 
+      };
+    }).catch(function() {
+      handleAvailabilityChange(true);
+    });
+  }
+
   $scope.initTimer = function () {
     window.addEventListener('onReceive', onReceive);
 
@@ -123,9 +198,14 @@ angular.module('controller.controllers', [])
     $scope.runTimer = false;
     $scope.hasStarted = false;
     $scope.hasFinished = false;
+    $scope.isCastAvailable = false;
+    $scope.isCasting = false;
     $scope.secondsRemaining = $scope.timeInSeconds;
     $scope.messages = [];
     $scope.images = Images.all();
+    $scope.presUrls = ["http://localhost/Demo/receiver.html"];
+    //$scope.request = null;
+    initPresentation();
   };
 })
 

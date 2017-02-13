@@ -7,6 +7,12 @@
   display: inline-block;
   float: left;
 }
+
+.item.item-icon-right {
+  display: inline-block;
+  float: right;
+}
+
 .timer {
   text-align: center;
   font-size: 60px;

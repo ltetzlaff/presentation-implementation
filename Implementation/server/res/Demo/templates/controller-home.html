@@ -21,6 +21,14 @@
     <i class="icon ion-stop"></i>
     Stop Timer
   </a>
+  <a href="#" class="item item-icon-right" ng-click="startCast()" ng-if="isCastAvailable">
+    <i class="icon ion-monitor"></i>
+    Cast
+  </a>
+  <a href="#" class="item item-icon-right" ng-click="stopCast()" ng-if="isCasting">
+    <i class="icon ion-monitor"></i>
+    Stop Cast
+  </a>
 </div>
 </div>
 <div class="card">
