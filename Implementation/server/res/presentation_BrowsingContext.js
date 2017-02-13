@@ -20,6 +20,32 @@ class PresentationRequest {
   }
 }
 
+
+class PresentationAvailability {
+  constructor() {
+    implement(this, EventTarget);
+    addEventListeners(this, ["change"]);
+    addReadOnlys(this, ["value"]);    
+  }
+}
+
+
+class PresentationReceiver {
+  constructor() {    
+    addReadOnlys(this, ["connectionList"]);
+  }
+}
+
+class PresentationConnectionList {
+  constructor() {
+    implement(this, EventTarget);
+    addReadOnlys(this, ["connections"]);
+    addEventListeners(this, ["connectionavailable"]);
+  }
+}
+
+
+
 class PresentationConnection {
   constructor() {
     implement(this, EventTarget);
@@ -40,6 +66,8 @@ class PresentationConnection {
     uac.tellParent({command: "send", input: {data}});
   }
 }
+
+
 
 const Miscellaneous = {
   // 6.3.3

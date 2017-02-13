@@ -1,11 +1,24 @@
 // Global scope of the user agent
-const ua = new UserAgent(); 
+const ua = new UserAgent();
 window.addEventListener("message", ua.receiveMessage, false);
 
 
 class BrowsingContextConnector {
   constructor() {
     this.childBrowsingContexts = [];
+  }
+
+  serialize(obj) {
+    obj.deserializeTo = obj.constructor.name;
+    return JSON.stringify(obj);
+  }
+  
+  // #TODO test this or use nicos duck typing approach!
+  deserialize(str) {
+    let obj = JSON.parse(str);
+    implement(obj, window[obj.deserializeTo]);
+    obj.constructor.name = obj.deserializeTo;
+    delete obj.deserializeTo;
   }
 
   receiveMessage(event) {
@@ -44,7 +57,7 @@ class BrowsingContextConnector {
     }
 
     // Answer with output
-    e.source.postMessage({output, key: data.key});
+    e.source.postMessage({output: this.serialize(output), key: data.key});
   }
 }
 
