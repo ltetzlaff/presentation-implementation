@@ -1,10 +1,4 @@
-let p = window.navigator.presentation;
-p.allowed = DiscoveryAllowance.none;
-p.refreshContinousMonitoring();
-
-// Whoever has this script loaded is a Presentation.
 // .receiver can be accessed to retrieve reference to the 'receiving browsing context'
-let D = {displayName: "Display One", displayId: guid()};
 p.receiver = new PresentationReceiver(D);
     
 // Example code

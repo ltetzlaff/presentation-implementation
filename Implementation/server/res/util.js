@@ -1,9 +1,56 @@
+const ReturnType = {
+  Promise: "Promise",
+  Event: "Event",
+  void: "void"
+};
+const PromiseState = {
+  fulfilled: "fulfilled",
+  rejected: "rejected",
+  pending: "pending"
+};
+const Role = {
+  Controller: 0,
+  Receiver: 1
+};
+const PresentationConnectionState = {
+  connecting: "connecting",
+  connected: "connected",
+  closed: "closed",
+  terminated: "terminated"
+};
+const PresentationConnectionClosedReasons = {
+  error: "error",
+  closed: "closed",
+  wentaway: "wentaway"
+};
+const PresentationMessageType = {
+  binary: "binary",
+  text: "text"
+};
+const BinaryType = {
+  blob: "blob",
+  arrayBuffer: "arrayBuffer"
+};
+const DiscoveryAllowance = {
+  none: 0,      // must not discover
+  manual: 1,    // may discover if initiated manually (powersave)
+  continous: 2  // do what Bam Margera will do next
+};
+
+
 function serialize(obj) {
   return JSON.stringify(serializeClass(obj));
 }
   
 function serializeClass(obj) {
-  obj.deserializeTo = obj.constructor.name;
+  switch (obj.constructor.name) {
+    case "Promise":
+      obj = {deserializeTo: "Promise", }
+      break;
+    default:
+      obj.deserializeTo = obj.constructor.name;
+      break;
+  }
   return obj;
 }
 
@@ -160,20 +207,25 @@ function fire(event, at) {
   at.dispatchEvent(event);
 }
 
-function addEventListeners(obj, eventNames) {
+function addEventListeners(eventTarget, eventNames, connector) {
   if (typeof eventNames === "string") {
     eventNames = [eventNames];
   }
   eventNames.forEach(name => {
-    obj["on" + name] = null;
-    obj.addEventListener(name, (e) => {
-      let handler = obj["on" + name];
+    eventTarget["on" + name] = null;
+    eventTarget.addEventListener(name, (e) => {
+      let handler = eventTarget["on" + name];
       if (handler && typeof handler === "function") {
         handler(e);
       } else {
-        console.warn("No handler assigned for " + name + " on Target:", obj);
+        console.warn("No handler assigned for " + name + " on Target:", eventTarget);
       }
     });
+    
+    if (connector.constructor.name === "UserAgentConnector") {
+      let key = guid();
+      connector.memory[]
+    }
   });
 }
 
@@ -184,7 +236,7 @@ function addEventListeners(obj, eventNames) {
  */
 function addReadOnlys(obj, attributes, uac) {
   for (let key in attributes) {
-    to[key] = attributes[key];
+    obj[key] = attributes[key];
   }
   uac.subscribe("change", obj, Object.keys(attributes));
 }
@@ -204,40 +256,6 @@ function implement(instance, I) {
   for (let prop in I.prototype) {
     instance[prop] = I.prototype[prop].bind(eventTarget);
   }
-}
-
-/**
- * Overwrite dest and give it source's properties (assign doesnt take functions)
- * @param {Object} dest
- * @param {Object} source
- * @param {boolean} isDeep - do a deep copy or not
- */
-function copy(dest, source, isDeep) {
-  if (isDeep) {
-    // #TODO implement this if we need it at some point
-    throw new NotImplementedException();
-  } else {
-    // http://www.2ality.com/2014/01/object-assign.html
-    dest = Object.assign({}, source);
-  }
-}
-
-/**
- * @param {Object} to - receiving object
- * @param {String} propName
- * @param {any} propValue - reference to value of the getter
- */
-function makeGetter(to, propName, propValue) {
-  Object.defineProperty(to, propName, {get: () => propValue});
-}
-
-/**
- * @param {Object} to - receiving object
- * @param {String} propName
- * @param {any} propValue - once written then twice shy
- */
-function readOnly(to, propName, propValue) {
-  Object.defineProperty(to, propName, {value: propValue, writable: false});
 }
 
 /**
@@ -282,9 +300,6 @@ function domEx(id, msg) {
   console.error(new Error(msg).stack);
   return new DOMException(DOMException[id]);
 }
-
-// none: must not discover, manual: may discover if initiated manually (powersave), continous: do what Bam Margera will do next
-const DiscoveryAllowance = {none: 0, manual: 1, continous: 2};
 
 class Browser {
   /**

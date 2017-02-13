@@ -2,115 +2,110 @@
 class PresentationRequest {
   constructor(urls) {
     implement(this, EventTarget);
-    addEventListeners(this, "connectionavailable");
+    addEventListeners(this, "connectionavailable", uac);
 
-    uac.tellParent({command: "constructPresentationRequest", input: {urls}});
+    uac.tellUA({
+      command: "constructPresentationRequest", 
+      input: {urls}
+    });
   }
 
   start() {
-    return uac.tellParent({command: "selectPresentationDisplay"}, ReturnType.Promise);
+    return uac.tellUA({
+      command: "selectPresentationDisplay",
+      input: {presentationRequest: this},
+      type: ReturnType.Promise
+    });
   }
 
   reconnect(presentationId) {
-    return uac.tellParent({command: "reconnect", input: {presentationId}}, ReturnType.Promise);
+    return uac.tellUA({
+      command: "reconnect",
+      input: {presentationId},
+      type: ReturnType.Promise
+    });
   }
 
   getAvailability() {
-    return uac.tellParent({command: "getAvailability"}, ReturnType.Promise);
+    return uac.tellUA({
+      command: "getAvailability",
+      type: ReturnType.Promise
+    });
   }
 }
 
-
-class PresentationAvailability {
-  constructor() {
-    implement(this, EventTarget);
-    addEventListeners(this, ["change"]);
-    addReadOnlys(this, ["value"]);    
-  }
-}
-
-
-class PresentationReceiver {
-  constructor() {    
-    addReadOnlys(this, ["connectionList"]);
-  }
-}
+class PresentationAvailability {}
 
 class PresentationConnectionList {
   constructor() {
     implement(this, EventTarget);
     addReadOnlys(this, ["connections"]);
-    addEventListeners(this, ["connectionavailable"]);
+    addEventListeners(this, ["connectionavailable"], uac);
   }
 }
-
-
 
 class PresentationConnection {
   constructor() {
     implement(this, EventTarget);
-    addEventListeners(this, ["connect", "close", "terminate", "message"]);
+    addEventListeners(this, ["connect", "close", "terminate", "message"], uac);
     addReadOnlys(this, ["id", "url", "state"]);
     this.binaryType = BinaryType.arrayBuffer;
   }
 
   close() {
-    uac.tellParent({command: "close"})
+    uac.tellUA({
+      command: "closePresentationConnection",
+      input: {
+        presentationConnection: this,
+        closeReason: PresentationConnectionClosedReasons.closed,
+        closeMessage: ""
+      }
+    })
   }
 
   terminate() {
-    uac.tellParent({command: "terminate"})
+    uac.tellUA({
+      command: "terminatePresentationConnection",
+      input: {presentationConnection: this}
+    })
   }
 
   send(data) {
-    uac.tellParent({command: "send", input: {data}});
+    uac.tellUA({
+      command: "send",
+      input: {
+        presentationConnection: this,
+        data
+      }
+    });
   }
 }
+
+class PresentationConnectionAvailableEvent extends Event {}
+class PresentationConnectionCloseEvent extends Event {} 
 
 /**
- * 6.4.5
- * https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableevent
+ * 6.6
+ * https://w3c.github.io/presentation-api/#interface-presentationreceiver
  */
-class PresentationConnectionAvailableEvent extends Event {
+class PresentationReceiver {
   /**
-   * @param {DOMString} type
-   * @param {PresentationConnectionAvailableEventInit} eventInitDict - see https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableeventinit {connection: {PresentationConnect}}
+   * 6.6
+   * create receiver inside {ReceivingContext}
    */
-  constructor(type, eventInitDict) {
-    super(type);
-    readOnly(this, "connection", eventInitDict.connection);
+  constructor() {
+    Object.defineProperty(this, "connectionList", {
+      get: () => {
+        return uac.tellUA({
+          command: "getConnectionList",
+          type: ReturnType.Promise
+        });
+      }
+    });
   }
 }
 
-/**
- * 6.5.4a
- * https://w3c.github.io/presentation-api/#idl-def-presentationconnectioncloseevent
- */
-class PresentationConnectionCloseEvent extends Event{
-  /**
-   * @param {DOMString} type
-   */
-  constructor(type, eventInitDict) {
-    super(type);
-  }
-}
-
-class PresentationConnectionCloseEventInit {
-  /**
-   * 6.5.4b
-   * @param {String} reason
-   * @param {DOMString} message
-   */
-  constructor(reason, message) {
-    if (!reason || PresentationConnectionClosedReasons.some(pccr => pccr === reason)) {
-      throw new Error("Illegal close reason");
-    }
-    this.reason = reason;
-    this.message = message;
-  }
-}
-
-
+class PresentationConnectionList {}
 
 const Miscellaneous = {
   // 6.3.3
@@ -119,7 +114,7 @@ const Miscellaneous = {
     if (defaultReq === null) {
       return;
     }
-    uac.tellParent({
+    uac.tellUA({
       command: "startDefaultPresentationRequest",
       input: {
         W: document, 

@@ -1,32 +1,32 @@
 // Global scope of the user agent
 const ua = new UserAgent();
-window.addEventListener("message", ua.receiveMessage, false); // #TODO window is incorrect
-
 
 class BrowsingContextConnector {
   constructor() {
     this.childBrowsingContexts = [];
   }
 
+
+  tellContext(data) {
+
+  }
+
   receiveMessage(event) {
-    if (!includes(this.childBrowsingContexts, event.source.uac.contextId)) {
+    if (!includes(this.childBrowsingContexts, event.source)) {
       return; // i dont know this child
       // #TODO test if this works
     }
 
     let data = event.data;
-    let command = data.command;
     let input = data.input;
+
+    // Input Objects have to be serialized
     for (let subobj of input) {
       deserializeClass(input[subobj]);
     }
+    
     let output = null;
-
     switch (data.command) {
-      case "registerMe":
-        // save the identification reference to the child browsing context
-        this.childBrowsingContexts.push(input.contextId);
-        break;
       case "constructPresentationRequest":
         // 6.3.1
         output = new PresentationRequest(input.urls);
@@ -43,17 +43,64 @@ class BrowsingContextConnector {
         // 6.3.5
         output = input.presentationRequest.reconnect(input.presentationId);
         break;
+      case "send":
+        // 6.5.2
+        input.presentationConnection.send(input.data);
+        break;
+      case "closePresentationConnection":
+        // 6.5.5
+        input.presentationConnection.close(input.closeReason, input.closeMessage);
+        break;
+      case "terminatePresentationConnection":
+        // 6.5.6
+        input.presentationConnection.terminate();
+        break;
+      case "getConnectionList":
+        // 6.6 accessor connectionList
+        output = ua.getConnectionList();
+        break;
+      
       // #TODO more
     }
 
-    // Answer with output
-    e.source.postMessage({output: serialize(output), key: data.key});
+    switch (data.type) {
+      case ReturnType.Promise:
+        // Promises should later be         
+        output
+        .catch(reason => {
+          e.source.postMessage({
+            type: data.type,
+            key: data.key,
+            output: {
+              deserializeTo: "Promise",
+              state: PromiseState.rejected,
+              value: reason
+            }
+          });
+        })
+        .then(value => {
+          e.source.postMessage({
+            type: data.type,
+            key: data.key,
+            output: {
+              deserializeTo: "Promise",
+              state: PromiseState.fulfilled,
+              value: value
+            }
+          });
+        });
+        break;
+    }
   }
 }
 
 class UserAgent extends BrowsingContextConnector {
-  constructor() {
+  /**
+   * @param {ImplementationConfig} ic
+   */
+  constructor(ic) {
     super();
+
     this.monitoring = false;
     this.closing = false;
 
@@ -98,6 +145,91 @@ class UserAgent extends BrowsingContextConnector {
      */
     this.possible = false;
     this.refreshContinousMonitoring();
+    
+    /**
+     * These are needed if this user-agent shall be used as a R-UA
+     */
+    this.presentationControllers = []; // {[PresentationConnection]}
+    this.controllersMonitor = null; // {PresentationConnectionList}
+    this.controllersPromise = null; // {Promise<PresentationConnectionList>}
+
+    /**
+     * Apply ImplementationConfig
+     */
+    if (ic) {
+      ic.configure(this);
+    }
+  }
+
+  /**
+   * 6.6.1 
+   * actually there's a lot more #todo but i dont want to implement these steps by hand so lets use an iframe
+   * https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context
+   * @param {PresentationDisplay} D
+   * @param {String} presentationUrl - the presentation request url (should be in D)
+   * @param {String} presentationId - the presentation identifier (gets generated on creation)
+   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
+   */
+  createReceivingContext(D, presentationUrl, presentationId, sessionId) {
+    // 1. - 11.
+    let C = createContext(presentationUrl);
+    C.addEventListener("message", ua.receiveMessage, false);
+    this.childBrowsingContexts.push(C);
+
+    // 12.
+    this.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
+      this.handleClient(I, presentationId, presentationUrl, sessionId);
+    });
+    
+    // Connect initiating controlling context
+    this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
+  }
+
+  getConnectionList() {
+    if (this.controllersPromise !== null) {
+      return this.controllersPromise;                                 // 1.
+    } else {
+      let temp = null;
+      this.controllersPromise = new Promise((res, rej) => temp = res);// 2.
+      this.controllersPromise.resolve = temp;
+
+      if (this.controllersMonitor !== null) {
+        this.controllersPromise.resolve(this.controllersMonitor);     // 4.
+      }
+      return this.controllersPromise;                                 // 3.
+    }
+  }
+
+  /**
+   * 6.7.1
+   * https://w3c.github.io/presentation-api/#monitoring-incoming-presentation-connections
+   * @param {String} I - the presentation identifier passed by the controlling browsing context with the incoming connection request
+   * @param {String} this.presentationId - the presentation identifier used on context creation
+   * @param {String} this.presentationUrl - the presentation request url used on context creation
+   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
+   */
+  handleClient(I, presentationId, presentationUrl, sessionId) {
+    if (I !== presentationId) {
+      return false;                                                 // 1.
+    }
+    let S = new PresentationConnection(I, presentationUrl, Role.Receiver, sessionId); // 2. - 4.
+    S.establish().then(success => {                                 // 5. - 6.
+      this.presentationControllers.push(S);                         // 7.
+      if (this.controllersMonitor === null) {                       // 8.
+        this.controllersMonitor = new PresentationConnectionList();   // 8.1
+        this.controllersMonitor.connections = this.controllersMonitor.connections.concat(this.presentationControllers); // 8.2
+        if (this.controllersPromise !== null) {
+          this.controllersPromise.resolve(this.controllersMonitor);
+        }
+        return;
+      } else {                                                      // 9.
+        this.controllersMonitor.connections = this.controllersMonitor.connections.concat(this.presentationControllers); // 9.1
+        queueTask(() => {
+          let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: S});
+          fire(event, this.controllersMonitor);
+        });
+      }
+    });
   }
 
   refreshContinousMonitoring() {
@@ -157,46 +289,46 @@ class UserAgent extends BrowsingContextConnector {
     });
   }
 
-  /**
-   * Configure API
-   * "Implementation-specific" part in spec
-   * @param {ImplementationConfig} ic
+   /**
+   * Notify other party to close the connection
+   * https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
+   * @param {PresentationConnection} presentationConnection
+   * @param {PresentationConnectionClosedReasons} closeReason
+   * @param {string} closeMessage
    */
-  configure(ic) {
-    console.log("loaded Implementation: " + ic.name);
-    ImplementationConfig.Handlers().forEach(h => {
-      let handler = h + "Handler";
-      this[handler] = ic[handler];
+  close(presentationConnection, closeReason, closeMessage) {
+    if (this.closing) {
+      return; // 1.
+    }
+    queueTask(() => { // 2.
+      this.closing = true;
+      let states = [
+        PresentationConnectionState.closed,
+        PresentationConnectionState.connecting,
+        PresentationConnectionState.connected
+      ];
+      if (!(includes(states, presentationConnection.state))) {
+        return; // 2.1.
+      }
+      if (presentationConnection.state !== PresentationConnectionState.closed) {
+        presentationConnection.state = PresentationConnectionState.closed; // 2.2.
+      }
+      let event = new PresentationConnectionCloseEvent("close", new PresentationConnectionCloseEventInit(closeReason, closeMessage));
+      fire(event, presentationConnection);
     });
-
-    this.possible = true;
-    this.refreshContinousMonitoring();
+    return this.closeHandler(presentationConnection, closeReason, closeMessage);
   }
-}
 
-class ImplementationConfig {
   /**
-   * @param {String}  name                      - human readable name of the implementation setup
-   * @param {Function<Promise>} monitor         - how do you seek out for new displays,
-   * @param {Function<Promise>} selectDisplay   - [C] select them,
-   * @param {Function<Promise>} createContext   - [C] connect to them,
-   * @param {Function<Promise>} connect         - connect to them,
-   * @param {Function<Promise>} send            - send messages to them,
-   * @param {Function<Promise>} close           - notify them to close connection
-   * @param {Function<Promise>} monitorIncoming - [R] what to set up to be able to handle incoming connections
-   * @param {Function<Promise>} messageIncoming - what to set up to be able to handle incoming messages
-   *
-   * @param {Function<Promise>} host            - [R] optional, what happens if you instantiate a new receiver (tell some server maybe?)
+   * #TODO i dont get how to implement this as js uses reference-count garbage collection which cant be overridden or hooked into
+   * @param {PresentationAvailability} A
    */
-  constructor(name, handlers) {
-    this.name                 = name;
-    ImplementationConfig.Handlers().forEach(h => {
-      let handler = h + "Handler";
-      this[handler] = handlers[h];
-    });
-  }
-
-  static Handlers() {
-    return ["monitor", "selectDisplay", "createContext", "connect", "send", "close", "host", "monitorIncoming", "messageIncoming"];
-  }
+  /*gc(A) {
+    this.availabilityObjects = this.availabilityObjects.filter(aO => aO === A);
+    if (this.availabilityObjects.length === 0) {
+      // #TODO cancel any pending task to monitor the list of available presentation displays for power saving purposes, and set the list of available presentation displays to the empty list.
+      // somehow resolve the monitor() promise
+      this.availablePresentationDisplays = [];
+    }
+  }*/
 }
