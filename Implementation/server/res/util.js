@@ -152,6 +152,18 @@ function addEventListeners(obj, eventNames) {
 }
 
 /**
+ * @param {Object} obj
+ * @param {Object} attributes - {key: defaultValue}
+ * @param {UserAgentConnector} uac
+ */
+function addReadOnlys(obj, attributes, uac) {
+  for (let key in attributes) {
+    to[key] = attributes[key];
+  }
+  uac.subscribe("change", obj, Object.keys(attributes));
+}
+
+/**
  * WebIDL states interfaces but js doesnt have an implement function x)
  * @param {Object} instance
  * @param {Interface} I
