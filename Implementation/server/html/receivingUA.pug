@@ -4,6 +4,16 @@ block js
   script(src="userAgent.js")
   script(src="presentation_UserAgent.js")
   script(src="receiving_UserAgent.js")
+block css
+  style
+    include ../res/css/style.css
 block content
-  div
-    h1 Receiving User Agent
+  div(class='header') 
+    h2 Receiving User Agent        
+    input#send(type="text", value="" placeholder='Name of the display')
+    button(id="host")= "Host"
+    span(class='info') Number of receiving contexts:
+      span#numRecCon 0
+    span(class='info') Number of active controlling contexts:
+      span#numConCon 0
+    

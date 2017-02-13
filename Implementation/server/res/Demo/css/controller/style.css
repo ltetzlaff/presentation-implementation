@@ -1,0 +1,37 @@
+
+.messages {
+  height: 250px;
+  overflow: scroll;
+}
+.item.item-icon-left {
+  display: inline-block;
+  float: left;
+}
+
+.item.item-icon-right {
+  display: inline-block;
+  float: right;
+}
+
+.timer {
+  text-align: center;
+  font-size: 60px;
+  color: blue;
+  padding: 20px;
+}
+
+.item.left {
+  width: 50%;
+  display: inline;
+  float: left;
+}
+.item.right {
+  width: 50%;
+  display: inline;
+  float: left;
+}
+.hint {
+  text-align: center;
+  font-size: 30px;
+  padding: 20px;
+}
