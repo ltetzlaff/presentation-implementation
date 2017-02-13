@@ -1,10 +1,31 @@
+// 6.2
+class Presentation {
+  constructor() {
+    // {PresentationRequest}
+    this.defaultRequest = null;
+    
+    // {PresentationReceiver}
+    this.receiver = null;
+    
+    window.navigator.presentation = this;
+  }
+}
+
+class PresentationConnectionList {
+  constructor() {
+    implement(this, EventTarget);
+    addEventListeners(this, "connectionavailable");
+
+    this.connections = [];
+  }
+}
 
 // https://w3c.github.io/presentation-api/#idl-def-presentationrequest
 class PresentationRequest {
   // 6.3.1
   constructor(urls) {
     implement(this, EventTarget);
-    addEventListeners(this, "connectionavailable");
+    addEventListeners(this, "connectionavailable", ua);
 
     if (!urls) {
       throw domEx("NOT_SUPPORTED_ERROR"); // 1.
@@ -53,7 +74,7 @@ class PresentationRequest {
         ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
         .then(D => {
           // 11. - 12.
-          ua.startPresentationConnection(this, D, resolve);
+          this.startPresentationConnection(D, resolve);
         });
       });
       return P; // 5.
@@ -71,6 +92,7 @@ class PresentationRequest {
     if (Browser.isSandboxedPresentation(W)) {
       return;
     }
+    // #TODO
   }
   
   /**
@@ -102,7 +124,7 @@ class PresentationRequest {
     // 9.
     queueTask(() => {
       let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: S});
-      fire(event, ua);
+      fire(event, this);
     })
 
     // 10.+ 12.
@@ -253,5 +275,262 @@ class PresentationRequest {
       ua.monitoring = false;
       return Promise.reject();
     }
+  }
+}
+
+/**
+ * 6.4 https://w3c.github.io/presentation-api/#interface-presentationavailability
+ */
+class PresentationAvailability {
+  constructor(value) {
+    implement(this, EventTarget);
+    addEventListeners(this, "change");
+    
+    if (value !== undefined) {
+      this.value = value;
+    } else {
+      this.value = false;
+    }
+  }
+}
+
+/**
+ * 6.4.5
+ * https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableevent
+ */
+class PresentationConnectionAvailableEvent extends Event {
+  /**
+   * @param {DOMString} type
+   * @param {PresentationConnectionAvailableEventInit} eventInitDict - see https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableeventinit {connection: {PresentationConnect}}
+   */
+  constructor(type, eventInitDict) {
+    super(type);
+    this.connection = eventInitDict.connection;
+  }
+}
+
+class PresentationConnection {
+  /**
+   * 6.5
+   * https://w3c.github.io/presentation-api/#idl-def-presentationconnection
+   * @param {String} id - presentation id
+   * @param {String} url - presentation url
+   * @param {Role} role
+   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
+   * @param {PresentationConnectionState} state
+   */
+  constructor(id, url, role, sessionId) {
+    implement(this, EventTarget);
+    addEventListeners(this, ["connect", "close", "terminate", "message"]);
+
+    // which role of the presentation connection are we on right now
+    this.role = role;
+
+    // to seperate the different connections
+    this.sessionId = sessionId;
+
+    // {presentation identifier}
+    this.id = id;
+    this.url = url;
+    this.state = PresentationConnectionState.connecting;
+        
+    this.binaryType = BinaryType.arrayBuffer;
+  }
+  
+
+  /**
+   * 6.5.1
+   * connect
+   * @param {PresentationConnection} this
+   * @return {Promise<boolean>}
+   */
+  establish() {
+    // 1.
+    if (this.state !== PresentationConnectionState.connecting) {
+      console.warn("Establishing but not connecting, aborting..");
+      return;
+    }
+    
+    // 2.
+    // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
+    ua.closing = false;
+    return ua.connectHandler(this.id, this.sessionId, this.role)
+      .catch(() => {
+        this.close(PresentationConnectionClosedReasons.error); // 4.
+        return false;
+      })
+      .then((reference) => {
+        queueTask(() => {
+          this.state = PresentationConnectionState.connected;   // 3.
+          ua.messageIncomingHandler(this.sessionId, this.role,
+            (message) => this.receive(PresentationMessageType.text, message));
+          fire(new Event("connect"), this);
+        });
+        return true;
+      });
+  }
+  
+  /**
+   * 6.5.2
+   * send message
+   * @param {PresentationConnection} this
+   * @param {payload data} messageOrData
+   */
+  send(messageOrData) {
+    if (this.state !== PresentationConnectionState.connected) {
+      throw domEx("INVALID_STATE_ERROR"); // 1.
+    }
+    
+    // 2.
+    if (this.state == PresentationConnectionState.closed) {
+      return;
+    }
+    
+    // 3.
+    let messageType = null;
+    if (["ArrayBuffer", "ArrayBufferView", "Blob"].includes(messageOrData.constructor.name)) {
+      messageType = PresentationMessageType.binary;
+    } else if (messageOrData.constructor.name === "String") {
+      messageType = PresentationMessageType.text;
+    } else if (messageOrData.constructor.name === "Object") {
+      messageType = PresentationMessageType.text;
+      messageOrData = JSON.stringify(messageOrData);
+    }
+    if (!messageType) {
+      throw new Error("Unsupported message Type in PresentationRequest.send");
+    }
+    
+    ua.sendHandler(this.id, this.sessionId, this.role, messageType, messageOrData).catch(err => { // 4.
+      this.close(PresentationConnectionClosedReasons.error, err); // 5.
+    });
+  }
+  
+  /**
+   * 6.5.3
+   * receive message
+   * @param {PresentationConnection} this
+   * @param {PresentationMessageType} messageType
+   * @param {string|binary} messageData
+   */
+  receive(messageType, messageData) {
+    if (this.state !== PresentationConnectionState.connected) {
+      return; // 1.
+    }
+  
+    // 2.+3.
+    let msgEventInit = {};
+    //implement(msgEventInit, MessageEventInit); // this is not defined?
+    switch (messageType) {
+      case PresentationMessageType.text:
+        msgEventInit.data = messageData;
+        break;
+      case PresentationMessageType.binary:
+        if (this.binaryType == BinaryType.blob) {
+          msgEventInit.data = new Blob(messageData);
+        } else if (this.binaryType == BinaryType.arrayBuffer) {
+          msgEventInit.data = new ArrayBuffer(messageData);
+        } else {
+          console.error("Malformed presentationConnection.binaryType");
+        }
+        break;
+      default:
+        console.error("Malformed messageType at presentationConnection.receive()");
+        break;
+    }
+    
+    let event = new MessageEvent("message", msgEventInit);
+    queueTask(() => fire(event, this)); // 4.
+  }
+  
+  /**
+   * 6.5.5
+   * @param {PresentationConnection} this
+   * @param {PresentationConnectionClosedReasons} closeReason
+   * @param {string} closeMessage
+   */
+  close(closeReason, closeMessage) {
+    if (!(this.state == PresentationConnectionState.connecting || this.state == PresentationConnectionState.connected)) {
+      return;                                         // 1.
+    }
+    this.state = PresentationConnectionState.closed;  // 2.
+    this.send({category: "control", command: "close", detail: "closeReason"}); // 3.
+    if (closeReason != PresentationConnectionClosedReasons.wentaway) {
+      ua.close(this, closeReason, closeMessage); // 4.
+    }
+  }
+  
+  /**
+   * 6.5.6
+   * terminate controlling
+   */
+  terminateAsController() {
+    if (this.state != PresentationConnectionState.connected) {
+      return; // 1.
+    }
+    
+    window.navigator.presentation.controlledPresentations.forEach(knownConnection => { // 2.
+      if (this.id === knownConnection.id && knownConnection.state == PresentationConnectionState.connected) { // 2.1
+        queueTask(() => {
+          knownConnection.state = PresentationConnectionState.terminated; // 2.1.1
+          fire(new Event("terminate"), knownConnection);                  // 2.1.2
+        })
+        
+      }
+    });
+    
+    // 3.
+    this.send({terminate: true});
+  }
+  
+  /**
+   * 6.5.7
+   * terminate receiving
+   * https://w3c.github.io/presentation-api/#terminating-a-presentation-in-a-receiving-browsing-context
+   */
+  terminateAsReceiver() {
+    // #TODO
+  }
+   
+   /**
+   * 6.5.8
+   * terminate receiving -> handle in controlling
+   * https://w3c.github.io/presentation-api/#handling-a-termination-confirmation-in-a-controlling-user-agent
+   * @param {PresentationConnection} this
+   */
+  handleTerminationConfirmationAsController(S) {
+    this.controlledPresentations.forEach(P => {
+      if (P == S) { // 1.
+        queueTask(() => {
+          if (P.state !== PresentationConnectionState.connected) {
+            return;   // 1.1
+          }
+
+          P.state = PresentationConnectionState.terminated; // 1.2
+          fire(new Event("terminate"), P); // 1.3
+        })
+      }
+    });
+  }
+}
+
+/**
+ * 6.5.4
+ * https://w3c.github.io/presentation-api/#idl-def-presentationconnectioncloseevent
+ */
+class PresentationConnectionCloseEvent extends Event{
+  /**
+   * @param {DOMString} type
+   * @param {PresentationConnectionCloseEventInit} init
+   *  @param {String} init.reason
+   *  @param {DOMString} init.message
+   */
+  constructor(type, init) {
+    if (!init.reason || !PresentationConnectionClosedReasons.some(pccr => pccr === init.reason)) {
+      throw new Error("Illegal close reason");
+    }
+  
+    super(type);
+    this.reason = init.reason;
+    this.message = init.message;
   }
 }

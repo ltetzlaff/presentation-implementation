@@ -1,5 +1,3 @@
-const ReturnType = {Promise: 100, Event: 101, void: 102};
-
 // Gatekeeper between parent (= UA) and this context (= browsing context)
 class UserAgentConnector {
   constructor() {
@@ -9,35 +7,35 @@ class UserAgentConnector {
     this.origin = null;
 
     this.memory = {}; // this is a cache for promise-functions
-
-    this.contextId = guid(); // Every child browsing context has this class and must be differentiated by the parent, therefore every child generates it's own unique id
-
-    this.tellParent({command: "registerMe", input: {contextId: this.contextId}})
   }
 
   /**
    * @param {Object} data
-   * @param {ReturnType} type
+   *  @param {ReturnType} data.type
+   *  @param {Object} data.input
+   * @returns whatever is requested in data.type
    */
-  tellParent (data, type = ReturnType.void) {
+  tellUA (data) {
     if (this.source === undefined) { return; }
-
-    data.contextId = this.contextId;
-
-    let returnValue = null;
-    console.log("# Telling Parent: ", data);
     
-    // Only Promises are relevant here
-    switch(type) {
+    console.log("# Telling Parent: ", data);
+
+    // Input Objects have to be serialized
+    let input = data.input;
+    for (let subobj of input) {
+      serializeClass(input[subobj]);
+    }
+    this.source.postMessage(data, this.origin);
+
+    // If Promises are expected a promise should be returned
+    let returnValue = null;
+    switch(data.type) {
       case ReturnType.Promise:
-        let key = guid();
-        console.log("  Remembering Promise-functions at memory-key: ", key);
-        data.key = key;
-        returnValue = new Promise((res, rej) => this.memory[key] = {resolve: res, reject: rej});
+        data.key = guid();
+        console.log("  Remembering Promise-functions at memory-key: ", data.key);
+        returnValue = new Promise((res, rej) => this.memory[data.key] = {resolve: res, reject: rej});
         break;
     }
-
-    this.source.postMessage(serializeClass(data), this.origin);
     return returnValue;
   }
 
@@ -58,14 +56,24 @@ class UserAgentConnector {
     let data = event.data;
     let output = data.output;
     
-    switch(type) {
+    switch(data.type) {
       case ReturnType.Promise:
-        this.memory[data.key].resolve(output);
+        switch (output.state) {
+          case PromiseState.fulfilled:
+            this.memory[data.key].resolve(output.value);
+            break;
+          case PromiseState.rejected:
+            this.memory[data.key].reject(output.value);
+            break;
+          default:
+            console.warn("Unknown PromiseState", output);
+            break;
+        }
         delete this.memory[data.key];
         break;
       case ReturnType.Event:
         let output = event.data.output;
-        this.dispatchEvent(new Event(this.memory[output.recipient], output.eventData));
+        this.memory[output.recipient].dispatchEvent(new Event(output.eventType, output.eventData));
         break;
     }
   }
