@@ -10,6 +10,15 @@ let selectDisplayUI = (displays) => {
   return new Promise((resolve, reject) => {
     // Load + Reference iframe
     let picker = createContext("/selectDisplay.html");
+
+    picker.setAttribute("frameBorder", "0");
+    //picker.className = "selectDisplay";
+    picker.style.width = "300px";
+    picker.style.height = "350px";
+    picker.style.position = "fixed";
+    picker.style.right = "0%";
+    picker.style.zIndex = "10";
+
     
     // Communication from iframe (get selected display)
     window.addEventListener("message", function (e) {
@@ -18,6 +27,10 @@ let selectDisplayUI = (displays) => {
         picker.remove();
 
         let selectedDisplay = displays.find(d => d.displayId === e.data);
+        if(selectedDisplay == undefined){
+          reject("dismissed");
+          return;
+        }
         resolve(selectedDisplay);
       }
     });
