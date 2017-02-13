@@ -8,19 +8,6 @@ class BrowsingContextConnector {
     this.childBrowsingContexts = [];
   }
 
-  serialize(obj) {
-    obj.deserializeTo = obj.constructor.name;
-    return JSON.stringify(obj);
-  }
-  
-  // #TODO test this or use nicos duck typing approach!
-  deserialize(str) {
-    let obj = JSON.parse(str);
-    implement(obj, window[obj.deserializeTo]);
-    obj.constructor.name = obj.deserializeTo;
-    delete obj.deserializeTo;
-  }
-
   receiveMessage(event) {
     if (!includes(this.childBrowsingContexts, event.source.uac.contextId)) {
       return; // i dont know this child
@@ -30,6 +17,9 @@ class BrowsingContextConnector {
     let data = event.data;
     let command = data.command;
     let input = data.input;
+    for (let subobj of input) {
+      deserializeClass(input[subobj]);
+    }
     let output = null;
 
     switch (data.command) {
@@ -57,7 +47,7 @@ class BrowsingContextConnector {
     }
 
     // Answer with output
-    e.source.postMessage({output: this.serialize(output), key: data.key});
+    e.source.postMessage({output: serialize(output), key: data.key});
   }
 }
 
