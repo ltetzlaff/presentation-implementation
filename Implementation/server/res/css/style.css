@@ -1,0 +1,35 @@
+*{
+    margin: 0px;
+}
+
+.header{
+    display: block;
+    height: 30px;
+    width: 100%;
+    z-index: 0;
+    background-color: #d0d0d0;
+    padding: 3px;
+    border-bottom: darkgray 1px solid;
+}
+
+.header > h2{
+    float: left;
+}
+
+.header > button {
+    margin-top: 3px;
+    float: left;
+}
+
+.header > input, .info {
+    float: left;
+    margin-top: 3px;
+    margin-left: 20px;    
+}
+ .info{
+     margin-top: 5px;
+ }
+
+.info > *{
+    margin-left: 5px;
+}
