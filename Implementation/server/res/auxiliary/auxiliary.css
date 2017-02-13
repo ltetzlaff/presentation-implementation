@@ -1,0 +1,13 @@
+.panel{    
+    /*
+    box-shadow: 4px 4px 20px 5px rgba(130,130,130,0.59);
+    */
+}
+
+.selectDisplay{
+    position: fixed;
+    z-index: 10;
+    right: 0%;
+    height: 350px;   
+    width: 300;
+}
