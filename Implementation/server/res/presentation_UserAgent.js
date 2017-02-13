@@ -74,6 +74,44 @@ class PresentationRequest {
   }
   
   /**
+   * 6.3.4 https://w3c.github.io/presentation-api/#dfn-start-a-presentation-connection
+   * @param {PresentationRequest} this
+   * @param {PresentationDisplay} D
+   * @param {Function} P - resolve-function of Promise, gets resolved with new PresentationConnection
+   */
+  startPresentationConnection(D, P) {
+    console.log("starting Connection to: ", D);
+    let I = guid();
+    let presentationUrls = this.presentationUrls; // 4.
+    let pUrl = "";
+
+    // 5.
+    presentationUrls.some(presentationUrl => {
+      if (ua.availablePresentationDisplays.find(apd => apd.availabilityUrl === presentationUrl)) {
+        pUrl = presentationUrl.toString();
+        return true;
+      }
+    });
+
+    let S = new PresentationConnection(I, pUrl, Role.Controller, guid()); // 2., 3., 6.
+    ua.controlledPresentations.push(S); // 7.
+    
+    // 8.
+    P(S);
+
+    // 9.
+    queueTask(() => {
+      let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: S});
+      fire(event, ua);
+    })
+
+    // 10.+ 12.
+    ua.createContextHandler(D, pUrl, I, S.sessionId)
+    .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
+    .then (() => S.establish()); /* 13. */
+  }
+
+  /**
    * 6.3.5
    * Reconnect to presentation
    * https://w3c.github.io/presentation-api/#reconnecting-to-a-presentation
@@ -159,5 +197,61 @@ class PresentationRequest {
     
     this.getAvailabilityPending = P;
     return P;                                                  // 3.
+  }
+
+   /**
+   * 6.4.4 Monitoring the list of available presentation Displays
+   * theres been a major Rework in https://github.com/w3c/presentation-api/commit/0c800c5c5bee2573735e4b75b117bca77937a0d9
+   * @param {PresentationRequest} this
+   * @return {Promise}
+   */
+  monitor() {
+    console.log("monitoring");
+    this.monitoring = true;
+    let availabilitySet = this.availabilityObjects || [];// 1.
+    
+    if (ua.pendingSelection && this && this.presentationDisplayAvailability === null) { // 2.
+      let A = new PresentationAvailability();                                // 2.1
+      availabilitySet.push({A: A, urls: this.presentationUrls});        // 2.2
+    }
+    
+    let newDisplays = [];                                 // 3.
+    if (ua.possible && ua.allowed) {                  // 4.
+      return ua.monitorHandler().then((displays) => {          // 5.
+        newDisplays = displays;
+        ua.availablePresentationDisplays = [];          // 6.
+        availabilitySet.forEach(availability => {         // 7.
+          let previousAvailability = availability.A.value;  // 7.1
+          let newAvailability = false;                      // 7.2
+          // console.log(availability);
+          availability.urls.forEach(availabilityUrl => {    // 7.3.
+            newDisplays.forEach(display => {                  // 7.3.1.
+              let tuple = {availabilityUrl, display};
+              //console.log(this.availablePresentationDisplays, tuple);
+              if (!includes(ua.availablePresentationDisplays, tuple)) {
+                ua.availablePresentationDisplays.push(tuple); // 7.3.1.1.
+                //console.log("display detected: ", tuple);
+              }
+              ua.monitoring = false;
+              newAvailability = true;                           // 7.3.1.2
+            });
+          });
+
+          if (!availability.A.value) {
+            availability.A.value = newAvailability;         // 7.4
+          }
+
+          if (previousAvailability !== newAvailability) {
+            queueTask(() => {                               // 7.5
+              availability.A.value = newAvailability;
+              fire(new Event("change"), availability.A);
+            });
+          }
+        });
+      });
+    } else {
+      ua.monitoring = false;
+      return Promise.reject();
+    }
   }
 }
