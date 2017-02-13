@@ -20,7 +20,7 @@ class UserAgentConnector {
    * @param {ReturnType} type
    */
   tellParent (data, type = ReturnType.void) {
-    if (this.source === undefined) { return; }    
+    if (this.source === undefined) { return; }
 
     data.contextId = this.contextId;
 
@@ -37,7 +37,7 @@ class UserAgentConnector {
         break;
     }
 
-    this.source.postMessage(data, this.origin);
+    this.source.postMessage(serializeClass(data), this.origin);
     return returnValue;
   }
 
@@ -54,32 +54,22 @@ class UserAgentConnector {
     if (event.origin !== "http://localhost"){
       return;
     }
-    */      
+    */
+    let data = event.data;
+    let output = data.output;
     
-    this.dispatchEvent(new Event(event.data.recipient, event.data));    
+    switch(type) {
+      case ReturnType.Promise:
+        this.memory[data.key].resolve(output);
+        delete this.memory[data.key];
+        break;
+      case ReturnType.Event:
+        let output = event.data.output;
+        this.dispatchEvent(new Event(this.memory[output.recipient], output.eventData));
+        break;
+    }
   }
 }
 
 const uac = new UserAgentConnector();
 window.addEventListener("message", uac.receiveMessage, false);
-
-/**
- * Protocol From Parent
- * event.data ->
- * {
- *      output: {},
- *      key: "" (if there is a remembered promise to be resolved)
- * }
- * 
- *  * Protocol To Parent
- * event.data ->
- * {
- *      command: "",
- *      input: {*}, (* = depending on command, for example data, urls, sessionId or whatever)
- *      key: "" (if there is a remembered promise to be resolved
- * }
- * 
- */
-
-
-

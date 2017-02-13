@@ -20,6 +20,32 @@ class PresentationRequest {
   }
 }
 
+
+class PresentationAvailability {
+  constructor() {
+    implement(this, EventTarget);
+    addEventListeners(this, ["change"]);
+    addReadOnlys(this, ["value"]);    
+  }
+}
+
+
+class PresentationReceiver {
+  constructor() {    
+    addReadOnlys(this, ["connectionList"]);
+  }
+}
+
+class PresentationConnectionList {
+  constructor() {
+    implement(this, EventTarget);
+    addReadOnlys(this, ["connections"]);
+    addEventListeners(this, ["connectionavailable"]);
+  }
+}
+
+
+
 class PresentationConnection {
   constructor() {
     implement(this, EventTarget);
@@ -40,6 +66,51 @@ class PresentationConnection {
     uac.tellParent({command: "send", input: {data}});
   }
 }
+
+/**
+ * 6.4.5
+ * https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableevent
+ */
+class PresentationConnectionAvailableEvent extends Event {
+  /**
+   * @param {DOMString} type
+   * @param {PresentationConnectionAvailableEventInit} eventInitDict - see https://w3c.github.io/presentation-api/#idl-def-presentationconnectionavailableeventinit {connection: {PresentationConnect}}
+   */
+  constructor(type, eventInitDict) {
+    super(type);
+    readOnly(this, "connection", eventInitDict.connection);
+  }
+}
+
+/**
+ * 6.5.4a
+ * https://w3c.github.io/presentation-api/#idl-def-presentationconnectioncloseevent
+ */
+class PresentationConnectionCloseEvent extends Event{
+  /**
+   * @param {DOMString} type
+   */
+  constructor(type, eventInitDict) {
+    super(type);
+  }
+}
+
+class PresentationConnectionCloseEventInit {
+  /**
+   * 6.5.4b
+   * @param {String} reason
+   * @param {DOMString} message
+   */
+  constructor(reason, message) {
+    if (!reason || PresentationConnectionClosedReasons.some(pccr => pccr === reason)) {
+      throw new Error("Illegal close reason");
+    }
+    this.reason = reason;
+    this.message = message;
+  }
+}
+
+
 
 const Miscellaneous = {
   // 6.3.3

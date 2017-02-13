@@ -1,5 +1,5 @@
 // Global scope of the user agent
-const ua = new UserAgent(); 
+const ua = new UserAgent();
 window.addEventListener("message", ua.receiveMessage, false);
 
 
@@ -17,6 +17,9 @@ class BrowsingContextConnector {
     let data = event.data;
     let command = data.command;
     let input = data.input;
+    for (let subobj of input) {
+      deserializeClass(input[subobj]);
+    }
     let output = null;
 
     switch (data.command) {
@@ -44,7 +47,7 @@ class BrowsingContextConnector {
     }
 
     // Answer with output
-    e.source.postMessage({output, key: data.key});
+    e.source.postMessage({output: serialize(output), key: data.key});
   }
 }
 

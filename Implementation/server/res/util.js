@@ -1,6 +1,32 @@
+function serialize(obj) {
+  return JSON.stringify(serializeClass(obj));
+}
+  
+function serializeClass(obj) {
+  obj.deserializeTo = obj.constructor.name;
+  return obj;
+}
+
+function deserialize(str) {
+  let obj = JSON.parse(str);
+  return deserializeClass(obj);
+}
+
+function deserializeClass(obj) {
+  if (obj.deserializeTo) {
+    if (!window[obj.deserializeTo]) {
+      console.warn("Object wants to get deserialized to: "  + obj.deserializeTo + ", but fails:", obj, window);
+      return obj;
+    }
+    obj.__proto__ = window[obj.deserializeTo].prototype; // #TODO __proto__ is deprecated i think
+    delete obj.deserializeTo;
+  }
+  return obj;
+}
+
 /* http://youmightnotneedjquery.com/ */
 // https://developer.mozilla.org/en-US/Add-ons/Code_snippets/QuerySelector
-function $ (selector, el) {
+function $(selector, el) {
  if (!el) {el = document;}
  return el.querySelector(selector);
 }
@@ -8,7 +34,7 @@ function $ (selector, el) {
 /**
  * $ for multiple retrievals
  */
-function $$ (selector, el) {
+function $$(selector, el) {
  if (!el) {el = document;}
  return el.querySelectorAll(selector);
  // Note: the returned object is a NodeList.
@@ -82,7 +108,7 @@ function ajax(method, url, data) {
         break;
       case "Object":
         r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-        r.send(JSON.stringify(data));    
+        r.send(JSON.stringify(data));
         break;
       case "String":
       default:
