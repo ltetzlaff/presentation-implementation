@@ -83,7 +83,7 @@ const router = express.Router();
 // List all participants etc
 router.get("/", (req, res) => res.render("overview", {title: "Overview"}));
 
-["receiver", "demoPage", "controller"].forEach(page => {
+["controllingUA", "receivingUA", "receiver", "controller", "demoPage"].forEach(page => {
   router.get("/" + page, (req, res) => res.render(page, {title: page}));
 });
 
