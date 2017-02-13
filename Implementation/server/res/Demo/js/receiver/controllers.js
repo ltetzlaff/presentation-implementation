@@ -98,8 +98,25 @@ angular.module('receiver.controllers', [])
         $scope.$apply();
     }, 10000);
   }
+
+  addConnection = function(connection) {
+    connection.onmessage = function (message) {
+      onReceive(message.type, message.msg);
+    };
+  };
+
+  navigator.presentation.receiver.connectionList.then(function (list) {
+    list.connections.map(function (connection) {
+      addConnection(connection);
+    });
+    list.onconnectionavailable = function (evt) {
+      addConnection(evt.connection);
+    };
+  });
+
+
   $scope.initTimer = function () {
-    window.addEventListener('onReceive', onReceive);
+    //window.addEventListener('onReceive', onReceive);
 
     $scope.displayTime = getSecondsAsDigitalClock(3600);
     $scope.timeInSeconds = 3600;
