@@ -9,10 +9,11 @@ p.receiver = new PresentationReceiver(D);
     
 // Example code
 var addConnection = connection => {
-  connection.onmessage = messageEvent => {
+  window.connection = connection;
+  /*connection.onmessage = messageEvent => {
     console.log(messageEvent);
-    connection.send("message pingpong: " + messageEvent.data);
-  }
+    //connection.send("message pingpong: " + messageEvent.data);
+  }*/
 };
 
 p.receiver.connectionList.then(list => {
