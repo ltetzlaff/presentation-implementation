@@ -11,7 +11,7 @@ angular.module('controller.services', [])
   }, {
     id: 1,
     text: 'magnifier',
-    face: 'img/hint2.png'
+    src: 'img/hint2.png'
   }];
 
   return {
