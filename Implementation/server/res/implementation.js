@@ -76,7 +76,7 @@ const handlers = {
   },
   monitorIncoming : (id, url, cb) => {
     ajaxLong(server + "/didSomebodyJoinMe/" + id, null,
-      (newCtrls) => newCtrls.forEach(c => cb(c.presentationId))
+      (newCtrls) => newCtrls && newCtrls.length && newCtrls.forEach(c => cb(c.presentationId))
     );
   },
   connect         :  (id, sessionId, role) => {

@@ -20,7 +20,7 @@ ready(() => {
   });
 
   $("#stop").addEventListener("click", () => {
-    window.activeConnection.terminate();
+    window.activeConnection.terminateAsController();
   });
 
   $("#send").onchange = function() {
