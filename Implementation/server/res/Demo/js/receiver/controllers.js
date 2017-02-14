@@ -124,8 +124,9 @@ angular.module('receiver.controllers', [])
     $scope.hasStarted = false;
     $scope.hasFinished = false;
     $scope.secondsRemaining = $scope.timeInSeconds;
-    $scope.messages = [];
-    $scope.images = Images.all();
+    $scope.message = "";
+    $scope.showMessage = false;
+    $scope.showImage = false;
   };
 
 });
