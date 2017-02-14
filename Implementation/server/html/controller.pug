@@ -1,9 +1,9 @@
 extends layout.pug
 
 block js
-  script(src="browsingContext.js")
   script(src="presentation_BrowsingContext.js")
-  script(src="controller.js")
+  script(src="browsingContext.js")
+  script(src="clientscripts/controller.js")
 block content
   div
     h3 Insert Url you want to see presented
@@ -13,9 +13,3 @@ block content
     each btn in ["connect", "disconnect", "stop", "reconnect"]
       button(id=btn)= btn
     input#send(type="text", value="{}")
-  div
-    h3 Monitoring
-    select#discoveryAllowance
-      option(value=2) continous
-      option(value=1) manual
-      option(value=0) none

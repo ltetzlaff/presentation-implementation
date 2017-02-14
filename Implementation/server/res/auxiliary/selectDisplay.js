@@ -8,7 +8,7 @@ window.addEventListener("message", e => {
   });
 });
 
-function dismiss(){
+function cancel(){
   parent.postMessage(-1, origin);
 }
 

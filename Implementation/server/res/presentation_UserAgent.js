@@ -7,7 +7,7 @@ class Presentation {
     // {PresentationReceiver}
     this.receiver = null;
     
-    window.navigator.presentation = this;
+    Object.defineProperty(window.navigator, "presentation", {value: this})
   }
 }
 
@@ -68,7 +68,7 @@ class PresentationRequest {
       let P = new Promise((resolve, reject) => {
         // 6.
         if (!ua.monitoring) {
-          ua.monitor(this);
+          this.monitor();
         }
         
         ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
@@ -211,7 +211,7 @@ class PresentationRequest {
       this.presentationDisplayAvailability = new PresentationAvailability();
       let A = this.presentationDisplayAvailability;            // 6.
       ua.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
-      return ua.monitor(this).then(() => { // 8.
+      return this.monitor().then(() => { // 8.
         this.getAvailabilityPending = null;
         return resolve(A);                                     // 9.
       });
@@ -230,7 +230,7 @@ class PresentationRequest {
   monitor() {
     console.log("monitoring");
     this.monitoring = true;
-    let availabilitySet = this.availabilityObjects || [];// 1.
+    let availabilitySet = ua.availabilityObjects || [];// 1.
     
     if (ua.pendingSelection && this && this.presentationDisplayAvailability === null) { // 2.
       let A = new PresentationAvailability();                                // 2.1
@@ -441,9 +441,10 @@ class PresentationConnection {
     let event = new MessageEvent("message", msgEventInit);
     queueTask(() => fire(event, this)); // 4.
   }
-  
+    
   /**
    * 6.5.5
+   * https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
    * @param {PresentationConnection} this
    * @param {PresentationConnectionClosedReasons} closeReason
    * @param {string} closeMessage
@@ -455,10 +456,30 @@ class PresentationConnection {
     this.state = PresentationConnectionState.closed;  // 2.
     this.send({category: "control", command: "close", detail: "closeReason"}); // 3.
     if (closeReason != PresentationConnectionClosedReasons.wentaway) {
-      ua.close(this, closeReason, closeMessage); // 4.
+      // 4.
+      if (this.closing) {
+        return; // 1.
+      }
+      queueTask(() => { // 2.
+        this.closing = true;
+        let states = [
+          PresentationConnectionState.closed,
+          PresentationConnectionState.connecting,
+          PresentationConnectionState.connected
+        ];
+        if (!(includes(states, this.state))) {
+          return; // 2.1.
+        }
+        if (this.state !== PresentationConnectionState.closed) {
+          this.state = PresentationConnectionState.closed; // 2.2.
+        }
+        let event = new PresentationConnectionCloseEvent("close", new PresentationConnectionCloseEventInit(closeReason, closeMessage));
+        fire(event, this);
+      });
+      return ua.closeHandler(this, closeReason, closeMessage); 
     }
   }
-  
+
   /**
    * 6.5.6
    * terminate controlling

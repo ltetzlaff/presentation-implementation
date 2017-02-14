@@ -3,14 +3,15 @@ extends layout.pug
 block js
   script(src="userAgent.js")
   script(src="presentation_UserAgent.js")
-  script(src="receiving_UserAgent.js")
+  script(src="implementation.js")
+  script(src="clientscripts/receivingUserAgent.js")
 block css
   style
     include ../res/css/style.css
 block content
   div(class='header') 
     h2 Receiving User Agent        
-    input#send(type="text", value="" placeholder='Name of the display')
+    input#displayName(type="text", value="Display One" placeholder='Name of the display')
     button(id="host")= "Host"
     span(class='info') Number of receiving contexts:
       span#numRecCon 0

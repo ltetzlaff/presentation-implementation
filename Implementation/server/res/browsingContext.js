@@ -6,7 +6,7 @@ class UserAgentConnector {
     this.source = null;
     this.origin = null;
 
-    this.memory = {}; // this is a cache for promise-functions
+    this.promises = {}; // this is a cache for promise-functions
   }
 
   /**
@@ -22,10 +22,12 @@ class UserAgentConnector {
 
     // Input Objects have to be serialized
     let input = data.input;
-    for (let subobj of input) {
+    for (let subobj in input) {
       serializeClass(input[subobj]);
     }
-    this.source.postMessage(data, this.origin);
+    /*if (input.objectId) {
+      this.syncedObjects[objectId] = input.objectToSync;
+    }*/
 
     // If Promises are expected a promise should be returned
     let returnValue = null;
@@ -33,9 +35,10 @@ class UserAgentConnector {
       case ReturnType.Promise:
         data.key = guid();
         console.log("  Remembering Promise-functions at memory-key: ", data.key);
-        returnValue = new Promise((res, rej) => this.memory[data.key] = {resolve: res, reject: rej});
+        returnValue = new Promise((res, rej) => this.promises[data.key] = {resolve: res, reject: rej});
         break;
     }
+    this.source.postMessage(JSON.parse(JSON.stringify(data)), this.origin);
     return returnValue;
   }
 
@@ -54,30 +57,32 @@ class UserAgentConnector {
     }
     */
     let data = event.data;
-    let output = data.output;
     
     switch(data.type) {
       case ReturnType.Promise:
-        switch (output.state) {
+        switch (data.output.state) {
           case PromiseState.fulfilled:
-            this.memory[data.key].resolve(output.value);
+            this.promises[data.key].resolve(data.output.value);
             break;
           case PromiseState.rejected:
-            this.memory[data.key].reject(output.value);
+            this.promises[data.key].reject(data.output.value);
             break;
           default:
-            console.warn("Unknown PromiseState", output);
+            console.warn("Unknown PromiseState", data.output);
             break;
         }
-        delete this.memory[data.key];
+        delete this.promises[data.key];
         break;
       case ReturnType.Event:
         let output = event.data.output;
-        this.memory[output.recipient].dispatchEvent(new Event(output.eventType, output.eventData));
+        this.promises[output.recipient].dispatchEvent(new Event(output.eventType, output.eventData));
+        break;
+      case ReturnType.Sync:
         break;
     }
   }
 }
 
 const uac = new UserAgentConnector();
-window.addEventListener("message", uac.receiveMessage, false);
+window.addEventListener("message", (e) => uac.receiveMessage(e), false);
+let p = new Presentation();

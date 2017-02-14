@@ -12,13 +12,6 @@ let UI = {
 }
 
 ready(() => {
-  let p = window.navigator.presentation;
-
-  $("#discoveryAllowance").addEventListener("change", function() {
-    p.allowed = Number.parseInt(this.options[this.selectedIndex].value);
-    p.refreshContinousMonitoring();
-  });
-
   $("#stop").addEventListener("click", () => {
     window.activeConnection.terminate();
   });
@@ -32,6 +25,7 @@ ready(() => {
   });
 
   $("#connect").addEventListener("click", () => {
+    let p = window.navigator.presentation;
     p.defaultRequest = new PresentationRequest($("#url").value);
     p.defaultRequest.onconnectionavailable = e => {
       // Disconnect prior connections
