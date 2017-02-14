@@ -1,12 +1,36 @@
 // Presentation API Interfaces
+class Presentation {
+  constructor() {
+    // {PresentationRequest}
+    this.defaultRequest = null;
+    
+    // {PresentationReceiver}
+    this.receiver = null;
+    
+    Object.defineProperty(window.navigator, "presentation", {value: this})
+  }
+}
+
+
+class PresentationAvailability {}
+class PresentationConnectionList {}
+class PresentationConnectionAvailableEvent extends Event {}
+class PresentationConnectionCloseEvent extends Event {} 
+
 class PresentationRequest {
   constructor(urls) {
     implement(this, EventTarget);
     addEventListeners(this, "connectionavailable", uac);
 
+    this.objectId = guid();
+
     uac.tellUA({
       command: "constructPresentationRequest", 
-      input: {urls}
+      input: {
+        urls
+        //objectId: this.objectId,
+        //objectToSync: this
+      }
     });
   }
 
@@ -29,29 +53,13 @@ class PresentationRequest {
   getAvailability() {
     return uac.tellUA({
       command: "getAvailability",
+      input: {presentationRequest: this},
       type: ReturnType.Promise
     });
   }
 }
 
-class PresentationAvailability {}
-
-class PresentationConnectionList {
-  constructor() {
-    implement(this, EventTarget);
-    addReadOnlys(this, ["connections"]);
-    addEventListeners(this, ["connectionavailable"], uac);
-  }
-}
-
 class PresentationConnection {
-  constructor() {
-    implement(this, EventTarget);
-    addEventListeners(this, ["connect", "close", "terminate", "message"], uac);
-    addReadOnlys(this, ["id", "url", "state"]);
-    this.binaryType = BinaryType.arrayBuffer;
-  }
-
   close() {
     uac.tellUA({
       command: "closePresentationConnection",
@@ -81,9 +89,6 @@ class PresentationConnection {
   }
 }
 
-class PresentationConnectionAvailableEvent extends Event {}
-class PresentationConnectionCloseEvent extends Event {} 
-
 /**
  * 6.6
  * https://w3c.github.io/presentation-api/#interface-presentationreceiver
@@ -104,8 +109,6 @@ class PresentationReceiver {
     });
   }
 }
-
-class PresentationConnectionList {}
 
 const Miscellaneous = {
   // 6.3.3

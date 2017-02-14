@@ -9,7 +9,7 @@ let CLIENT_NAME = "John Doe";
 let selectDisplayUI = (displays) => {
   return new Promise((resolve, reject) => {
     // Load + Reference iframe
-    let picker = createContext("/selectDisplay.html");
+    let picker = createContext("/auxiliary/selectDisplay.html");
 
     picker.setAttribute("frameBorder", "0");
     //picker.className = "selectDisplay";
@@ -17,6 +17,7 @@ let selectDisplayUI = (displays) => {
     picker.style.height = "350px";
     picker.style.position = "fixed";
     picker.style.right = "0%";
+    picker.style.top = "100px";
     picker.style.zIndex = "10";
 
     
@@ -140,3 +141,8 @@ class ImplementationConfig {
   }
 }
 let config = new ImplementationConfig("ajax-based Example", handlers);
+
+// Global scope of the user agent
+new Presentation();
+const ua = new UserAgent(config);
+window.addEventListener("message", (e) => ua.receiveMessage(e), false);

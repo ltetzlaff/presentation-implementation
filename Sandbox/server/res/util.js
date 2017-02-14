@@ -75,21 +75,8 @@ function ajax(method, url, data) {
     }
     
     r.open(method, url, true);
-    
-    switch(data.constructor.name) {
-      case "Blob":
-        r.send(data);
-        break;
-      case "Object":
-        r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-        r.send(JSON.stringify(data));    
-        break;
-      case "String":
-      default:
-        r.setRequestHeader('Content-Type', 'text/plain; charset=UTF-8');
-        r.send(data);
-        break;
-    }
+    r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+    r.send(JSON.stringify(data));    
   });
 }
 

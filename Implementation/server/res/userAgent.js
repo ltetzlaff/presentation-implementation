@@ -1,5 +1,4 @@
-// Global scope of the user agent
-const ua = new UserAgent();
+let pr = null;
 
 class BrowsingContextConnector {
   constructor() {
@@ -7,41 +6,56 @@ class BrowsingContextConnector {
   }
 
 
-  tellContext(data) {
-
+  tellContext(data, context) {
+    context.contentWindow.postMessage(data, location.origin)
   }
 
   receiveMessage(event) {
-    if (!includes(this.childBrowsingContexts, event.source)) {
+    if (!this.childBrowsingContexts.some(cbc => cbc.contentWindow === event.source)) {
       return; // i dont know this child
-      // #TODO test if this works
     }
-
+      // #TODO test if this works
+    
     let data = event.data;
     let input = data.input;
 
     // Input Objects have to be serialized
-    for (let subobj of input) {
+    /*for (let subobj in input) {
       deserializeClass(input[subobj]);
+    }*/
+
+    for (let subobj in input) {
+      /*let objectId = input[subobj].objectId;
+      if (objectId) {
+        input[subobj] = ua.objects[objectId];
+      }*/
     }
     
     let output = null;
     switch (data.command) {
       case "constructPresentationRequest":
         // 6.3.1
-        output = new PresentationRequest(input.urls);
+        pr = new PresentationRequest(input.urls);
+        //ua.objects[input.objectId] = pr;
+        output = pr;
         break;
       case "selectPresentationDisplay":
         // 6.3.2
-        output = input.presentationRequest.start();
+        //output = input.presentationRequest.start();
+        output = pr.start();
         break;
       case "startDefaultPresentationRequest":
         // 6.3.3
         PresentationRequest.startDefault(input.W, input.presentationRequest, input.D);
         break;
+      case "getAvailability":
+        // 6.4.3
+        //output = input.presentationRequest.getAvailability();
+        output = pr.getAvailability();
+        break;
       case "reconnect":
         // 6.3.5
-        output = input.presentationRequest.reconnect(input.presentationId);
+        output = pr.reconnect(input.presentationId);
         break;
       case "send":
         // 6.5.2
@@ -68,7 +82,7 @@ class BrowsingContextConnector {
         // Promises should later be         
         output
         .catch(reason => {
-          e.source.postMessage({
+          event.source.postMessage({
             type: data.type,
             key: data.key,
             output: {
@@ -76,18 +90,18 @@ class BrowsingContextConnector {
               state: PromiseState.rejected,
               value: reason
             }
-          });
+          }, "*");
         })
         .then(value => {
-          e.source.postMessage({
+          event.source.postMessage({
             type: data.type,
             key: data.key,
             output: {
               deserializeTo: "Promise",
               state: PromiseState.fulfilled,
-              value: value
+              value: JSON.parse(JSON.stringify(value))
             }
-          });
+          }, "*");
         });
         break;
     }
@@ -100,7 +114,7 @@ class UserAgent extends BrowsingContextConnector {
    */
   constructor(ic) {
     super();
-
+    
     this.monitoring = false;
     this.closing = false;
 
@@ -161,6 +175,15 @@ class UserAgent extends BrowsingContextConnector {
     }
   }
 
+  createControllingContext(controllerUrl) {
+    let C = createContext(controllerUrl);
+    C.onload = () => {
+      C.contentWindow.postMessage("hi", "*");
+    };
+    
+    this.childBrowsingContexts.push(C);
+  }
+
   /**
    * 6.6.1 
    * actually there's a lot more #todo but i dont want to implement these steps by hand so lets use an iframe
@@ -175,7 +198,7 @@ class UserAgent extends BrowsingContextConnector {
     let C = createContext(presentationUrl);
     C.addEventListener("message", ua.receiveMessage, false);
     this.childBrowsingContexts.push(C);
-
+    
     // 12.
     this.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
       this.handleClient(I, presentationId, presentationUrl, sessionId);
@@ -238,7 +261,9 @@ class UserAgent extends BrowsingContextConnector {
       clearInterval(this.continousMonitoring);
     }
     if (this.allowed == DiscoveryAllowance.continous) {
-      this.continousMonitoring = setInterval(() => {this.monitor(this.defaultRequest)}, this.SCAN_PERIOD);
+      this.continousMonitoring = setInterval(() => {
+        this.defaultRequest && this.defaultRequest.monitor()
+      }, this.SCAN_PERIOD);
     }
   }
 
@@ -287,36 +312,6 @@ class UserAgent extends BrowsingContextConnector {
         }
       });
     });
-  }
-
-   /**
-   * Notify other party to close the connection
-   * https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
-   * @param {PresentationConnection} presentationConnection
-   * @param {PresentationConnectionClosedReasons} closeReason
-   * @param {string} closeMessage
-   */
-  close(presentationConnection, closeReason, closeMessage) {
-    if (this.closing) {
-      return; // 1.
-    }
-    queueTask(() => { // 2.
-      this.closing = true;
-      let states = [
-        PresentationConnectionState.closed,
-        PresentationConnectionState.connecting,
-        PresentationConnectionState.connected
-      ];
-      if (!(includes(states, presentationConnection.state))) {
-        return; // 2.1.
-      }
-      if (presentationConnection.state !== PresentationConnectionState.closed) {
-        presentationConnection.state = PresentationConnectionState.closed; // 2.2.
-      }
-      let event = new PresentationConnectionCloseEvent("close", new PresentationConnectionCloseEventInit(closeReason, closeMessage));
-      fire(event, presentationConnection);
-    });
-    return this.closeHandler(presentationConnection, closeReason, closeMessage);
   }
 
   /**

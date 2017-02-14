@@ -1,5 +1,5 @@
 // .receiver can be accessed to retrieve reference to the 'receiving browsing context'
-p.receiver = new PresentationReceiver(D);
+window.navigator.presentation.receiver = new PresentationReceiver(D);
     
 // Example code
 var addConnection = connection => {

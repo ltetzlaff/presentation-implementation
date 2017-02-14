@@ -1,7 +1,8 @@
 const ReturnType = {
   Promise: "Promise",
   Event: "Event",
-  void: "void"
+  void: "void",
+  Sync: "Sync"
 };
 const PromiseState = {
   fulfilled: "fulfilled",
@@ -65,7 +66,9 @@ function deserializeClass(obj) {
       console.warn("Object wants to get deserialized to: "  + obj.deserializeTo + ", but fails:", obj, window);
       return obj;
     }
-    obj.__proto__ = window[obj.deserializeTo].prototype; // #TODO __proto__ is deprecated i think
+    //console.log(window[obj.deserializeTo].prototype)
+    Object.setPrototypeOf(obj, window[obj.deserializeTo].prototype)
+    console.log(obj);
     delete obj.deserializeTo;
   }
   return obj;
@@ -119,6 +122,7 @@ function querystring(o) {
 }
 
 function ajax(method, url, data) {
+  console.log(method, url);
   method = method.toUpperCase();
   return new Promise((resolve, reject) => {
     let r = new XMLHttpRequest();
@@ -143,26 +147,15 @@ function ajax(method, url, data) {
     };
     
     r.onerror = () => {
-      console.warn("Couldn't " + method + " to " + url);
       reject(404);
+    }
+    r.ontimeout = () => {
+      reject(403);
     }
     
     r.open(method, url, true);
-    
-    switch(data.constructor.name) {
-      case "Blob":
-        r.send(data);
-        break;
-      case "Object":
-        r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-        r.send(JSON.stringify(data));
-        break;
-      case "String":
-      default:
-        r.setRequestHeader('Content-Type', 'text/plain; charset=UTF-8');
-        r.send(data);
-        break;
-    }
+    r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
+    r.send(JSON.stringify(data));
   });
 }
 
@@ -182,9 +175,9 @@ function ajaxLong(url, initData, onSuccess, onStop){
       return Promise.resolve(result);
     }
   }
-
+  
   return ajax('GET', url, initData)
-  .catch(() => setTimeout(() => ajaxLong(url, initData, onSuccess, onStop), 1000))
+  .catch(() => ajaxLong(url, initData, onSuccess, onStop))
   .then((message) => {
     switch (typeof onSuccess) {
       case "function":
@@ -221,24 +214,11 @@ function addEventListeners(eventTarget, eventNames, connector) {
         console.warn("No handler assigned for " + name + " on Target:", eventTarget);
       }
     });
-    
-    if (connector.constructor.name === "UserAgentConnector") {
-      let key = guid();
-      connector.memory[]
-    }
   });
-}
 
-/**
- * @param {Object} obj
- * @param {Object} attributes - {key: defaultValue}
- * @param {UserAgentConnector} uac
- */
-function addReadOnlys(obj, attributes, uac) {
-  for (let key in attributes) {
-    obj[key] = attributes[key];
+  if (connector) {
+    //connector.
   }
-  uac.subscribe("change", obj, Object.keys(attributes));
 }
 
 /**
@@ -310,6 +290,7 @@ class Browser {
    */
   static getDiscoveryAllowance() {
     return DiscoveryAllowance.continous;
+    //return DiscoveryAllowance.manual;
   }
   
   
