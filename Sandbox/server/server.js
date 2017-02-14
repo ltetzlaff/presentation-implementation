@@ -183,7 +183,9 @@ router.get("/getMail/:sessionId/:role", (req, res) => {
       res.status(401).send("Unknown Role " + req.role).end();
       return;
   }
-  recipient.drain("message", msg => res.send(msg));
+  recipient.drain("message", msg => {
+    res.send(msg)
+  });
 });
 
 router.post("/sendMail/:sessionId/:role", (req, res) => {

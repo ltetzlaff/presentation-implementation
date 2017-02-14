@@ -9,7 +9,7 @@ let CLIENT_NAME = "John Doe";
 let selectDisplayUI = (displays) => {
   return new Promise((resolve, reject) => {
     // Load + Reference iframe
-    let picker = createContext("/auxiliary/selectDisplay.html");
+    let picker = createIframe("/auxiliary/selectDisplay.html");
 
     picker.setAttribute("frameBorder", "0");
     //picker.className = "selectDisplay";

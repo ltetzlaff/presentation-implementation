@@ -49,7 +49,7 @@ function ajax(method, url, data) {
   method = method.toUpperCase();
   return new Promise((resolve, reject) => {
     let r = new XMLHttpRequest();
-    r.timeout = 60000;
+    r.timeout = 600000;
     
     r.onload = function() {
       if (this.status >= 200 && this.status < 400) {
@@ -99,7 +99,9 @@ function ajaxLong(url, initData, onSuccess, onStop){
   }
 
   return ajax('GET', url, initData)
-  .catch(() => setTimeout(() => ajaxLong(url, initData, onSuccess, onStop), 5000))
+  .catch(() => setTimeout(() => {
+      ajaxLong(url, initData, onSuccess, onStop)
+    },5000))
   .then((message) => {
     switch (typeof onSuccess) {
       case "function":
@@ -214,6 +216,18 @@ function eq(x, y) {
  * @return {DOMElement}
  */
 function createContext(url) {
+  let ifrm = document.createElement("object");
+  // scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0">
+  ifrm.setAttribute("data", url);
+  ifrm.setAttribute("type", "text/html");
+  //ifrm.setAttribute("sandbox", "allow-scripts");
+  ifrm.style.width = "100%";
+  ifrm.style.height = "100%";
+  document.body.appendChild(ifrm);
+  return ifrm;
+}
+
+function createIframe(url) {
   let ifrm = document.createElement("iframe");
   // scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0">
   ifrm.setAttribute("src", url);
