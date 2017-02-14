@@ -70,10 +70,11 @@ function ajax(method, url, data) {
     };
     
     r.onerror = () => {
-      console.warn("Couldn't " + method + " to " + url);
       reject(404);
     }
-    
+    r.ontimeout = () => {
+      reject(403);
+    }
     r.open(method, url, true);
     r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     r.send(JSON.stringify(data));    
@@ -98,7 +99,7 @@ function ajaxLong(url, initData, onSuccess, onStop){
   }
 
   return ajax('GET', url, initData)
-  .catch(() => setTimeout(() => ajaxLong(url, initData, onSuccess, onStop), 1000))
+  .catch(() => setTimeout(() => ajaxLong(url, initData, onSuccess, onStop), 5000))
   .then((message) => {
     switch (typeof onSuccess) {
       case "function":
