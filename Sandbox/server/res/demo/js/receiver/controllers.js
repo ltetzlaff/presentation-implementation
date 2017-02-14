@@ -131,12 +131,14 @@ var TYPE = {
     $scope.hasStarted = false;
     $scope.hasFinished = false;
     $scope.secondsRemaining = $scope.timeInSeconds;
-    $scope.messages = [];
+    $scope.message = "";
+    $scope.showMessage = false;
+    $scope.showImage = true;
     window.top.connection.onmessage = function (message) {
       onReceive(message.data.type, message.data.msg);
     };
     //$scope.images = Images.all();
-    
+
   };
 
 });
