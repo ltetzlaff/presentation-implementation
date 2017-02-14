@@ -131,7 +131,7 @@ angular.module('controller.controllers', [])
   };
 
   $scope.startCast = function (){
-    p.defaultRequest = new PresentationRequest("http://localhost/Demo/receiver.html");
+    p.defaultRequest = new PresentationRequest("http://localhost/demo/receiver.html");
     p.defaultRequest.onconnectionavailable = e => {
       // Disconnect prior connections
       // #TODO https://w3c.github.io/presentation-api/#monitor-connection-s-state-and-exchange-data-example
@@ -162,7 +162,7 @@ angular.module('controller.controllers', [])
   $scope.stopCast = function () {
     if(connection !=  undefined){
       connection.close();
-    }    
+    }
   }
 
   setConnection = function (newConnection) {
@@ -197,7 +197,7 @@ angular.module('controller.controllers', [])
       $scope.isCasting = false;
     };
 
-    connection.onterminate = _ => {      
+    connection.onterminate = _ => {
       $state.presId = null;
       connection = null;
       $scope.isCasting = false;
@@ -208,9 +208,9 @@ angular.module('controller.controllers', [])
     $scope.request = new PresentationRequest($scope.presUrls);
     $scope.request.getAvailability().then(function(availability) {
       handleAvailabilityChange(availability.value);
-      availability.onchange = function(value) { 
+      availability.onchange = function(value) {
         if(this.value != undefined){
-          handleAvailabilityChange(this.value); 
+          handleAvailabilityChange(this.value);
         }
       };
     }).catch(function() {
@@ -231,7 +231,7 @@ angular.module('controller.controllers', [])
     $scope.secondsRemaining = $scope.timeInSeconds;
     $scope.messages = [];
     $scope.images = Images.all();
-    $scope.presUrls = ["http://localhost/Demo/receiver.html"];
+    $scope.presUrls = ["http://localhost/demo/receiver.html"];
     //$scope.request = null;
     //initPresentation();
   };
