@@ -1,0 +1,13 @@
+<ion-nav-view name="receiver-home">
+
+<ion-view view-title="Receiver" ng-init="initTimer()">
+  <ion-content>
+    <div>
+      <div class="timer"><span>{{ displayTime }}</span></div>
+      <div ng-if="showMessage" class="hint"><span>{{ message }}</span></div>
+      <div ng-if="showImage"><img ng-src="{{ imageSrc }}" /></div>
+      <div class="image" ng-if="!showImage && !showMessage"><img src="img/hint1.png" /></div>
+    </div>
+  </ion-content>
+</ion-view>
+</ion-nav-view>
