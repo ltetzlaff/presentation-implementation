@@ -1,11 +1,11 @@
 extends layout.pug
 
 block js
-  script(src="controller.js")
+  script(src="clientscripts/controller.js")
 block content
   div
     h3 Insert Url you want to see presented
-    input#url(type="text",value="http://localhost/demoPage")
+    input#url(type="text",value="http://localhost:8080/demoPage")
   div
     h3 Hit Connect to select a display and start presentation
     each btn in ["connect", "disconnect", "stop", "reconnect"]

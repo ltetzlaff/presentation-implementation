@@ -10,7 +10,7 @@ const bodyParser = require('body-parser');
 const EventEmitter = require("events").EventEmitter;
 
 // ---   SETUP    ---
-e.set('port', process.env.PORT || 80); //http #yolo
+e.set('port', process.env.PORT || 8080); //http #yolo
 
 // view engine setup
 e.set('views', path.join(__dirname, 'html'));
@@ -60,7 +60,7 @@ class Display extends Entity {
     super();
     this.displayName = displayName;
     this.displayId = displayId;
-    this.presentationId = null; 
+    this.presentationId = null;
     // this assumes that there's only one presentation per display because this will be the usual case
 
     // Keep track of controlling sessions
@@ -127,7 +127,7 @@ router.get("/monitor", (req, res) => {
   res.send(displays);
 });
 
-/** 
+/**
  * req.body: {url: "", id: GUID}
  */
 router.post("/prepareMyRoom/:displayId", (req, res) => {
@@ -164,7 +164,7 @@ router.post("/join/:presentationId/:role", (req, res) => {
   if (req.display && req.role === Role.Controller) {
     let newSession = new Controller(b.sessionId, b.controllerName);
     req.display.freshSessions.push(newSession);
-    req.display.send("joined", 
+    req.display.send("joined",
       {presentationId: req.params.presentationId, controllerName: b.controllerName});
   }
   res.status(200).end();
@@ -203,7 +203,7 @@ router.post("/sendMail/:sessionId/:role", (req, res) => {
   }
   
   recipient.send("message", req.body.data)
-  res.status(200).end();  
+  res.status(200).end();
 });
 
 e.use('/', router);

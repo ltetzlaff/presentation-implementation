@@ -1,11 +1,42 @@
-// require util.js
-
-// --- IMPLEMENTATION ---
-const Role = {Controller: 0, Receiver: 1};
-const PresentationConnectionState = {connecting: 0, connected:1, closed:2, terminated:3};
-const PresentationConnectionClosedReasons = {error: 10, closed: 11, wentaway: 12};
-const PresentationMessageType = {binary: 20, text: 21};
-const BinaryType = {blob: 30, arrayBuffer: 31};
+const ReturnType = {
+  Promise: "Promise",
+  Event: "Event",
+  void: "void",
+  Sync: "Sync"
+};
+const PromiseState = {
+  fulfilled: "fulfilled",
+  rejected: "rejected",
+  pending: "pending"
+};
+const Role = {
+  Controller: 0,
+  Receiver: 1
+};
+const PresentationConnectionState = {
+  connecting: "connecting",
+  connected: "connected",
+  closed: "closed",
+  terminated: "terminated"
+};
+const PresentationConnectionClosedReasons = {
+  error: "error",
+  closed: "closed",
+  wentaway: "wentaway"
+};
+const PresentationMessageType = {
+  binary: "binary",
+  text: "text"
+};
+const BinaryType = {
+  blob: "blob",
+  arrayBuffer: "arrayBuffer"
+};
+const DiscoveryAllowance = {
+  none: 0,      // must not discover
+  manual: 1,    // may discover if initiated manually (powersave)
+  continous: 2  // do what Bam Margera will do next
+};
 
 // 6.2
 class Presentation {
@@ -16,191 +47,16 @@ class Presentation {
     // {PresentationReceiver}
     this.receiver = null;
     
-    makeGetter(window.navigator, "presentation", this);
+    Object.defineProperty(window.navigator, "presentation", {value: this})
   }
 }
 
-
-/**
- * 6.4 https://w3c.github.io/presentation-api/#interface-presentationavailability
- */
-class PresentationAvailability {
-  constructor(value) {
-    implement(this, EventTarget);
-    addEventListeners(this, "change");
-
-    /*
-      Spec ambigous again: .value must only be set by https://w3c.github.sio/presentation-api/#interface-presentationavailability but also by monitor()??
-    */
-    if (value !== undefined) {
-      this.value = value;
-    } else {
-      this.value = false;
-    }
-  }
-}
-
-
-// https://w3c.github.io/presentation-api/#idl-def-presentationrequest
-class PresentationRequest {
-  // 6.3.1
-  constructor(urls) {
+class PresentationConnectionList {
+  constructor() {
     implement(this, EventTarget);
     addEventListeners(this, "connectionavailable");
 
-    if (!urls) {
-      throw domEx("NOT_SUPPORTED_ERROR"); // 1.
-    }
-    
-    if (!(urls instanceof Array)) {
-      urls = [urls]; //2.
-    }
-    
-    // #TODO check if implementation is according to spec
-    // spec says baseurl should come from https://html.spec.whatwg.org/multipage/webappapis.html#current-settings-object
-    this.presentationUrls = []; //3.
-    let baseUrl = new RegExp(/^.*\//).exec(window.location.href)[0];
-    urls.forEach(url => {
-      // url resolving like in nodejs (https://nodejs.org/api/url.html) is experimental: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
-      this.presentationUrls.push(new URL(url, baseUrl)); // 4., throws SyntaxError correctly
-    });
-    
-    this.presentationAvailabilityPromise = null;
-    this.presentationDisplayAvailability = null;
-    this.getAvailabilityPending = null;
-  }
-  
-  /**
-   * 6.3.2 https://w3c.github.io/presentation-api/#dom-presentationrequest-start
-   * @param {PresentationRequest} this
-   * @return {Promise<PresentationConnection>}
-   */
-  start() {
-    return new Promise((resolve, reject) => {
-      if (!Browser.allowedToShowPopup()) {
-        return reject(new InvalidAccessError()); // 1.
-      }
-      
-      if (document.startPromise) {
-        return reject(new OperationError()); // 2.+3. (somewhat simplified)
-      }
-
-      // 4.
-      let P = new Promise((resolve, reject) => {
-        // 6.
-        if (!window.navigator.presentation.monitoring) {
-          window.navigator.presentation.monitor(this);
-        }
-        
-        window.navigator.presentation.letUserSelectDisplay(this.presentationUrls) // 7-9.
-        .then(D => {
-          // 11. - 12.
-          window.navigator.presentation.startPresentationConnection(this, D, resolve);
-        });
-      });
-      return P; // 5.
-    });
-  }
-  
-  /**
-   * 6.3.3 https://w3c.github.io/presentation-api/#starting-a-presentation-from-a-default-presentation-request
-   * @param {document} W
-   * @param {PresentationRequest} presentationRequest
-   * @param {PresentationDisplay} D
-   */
-  static startDefault(W, presentationRequest, D) {
-    let presentationUrls = presentationRequest.presentationUrls; // 1.
-    if (Browser.isSandboxedPresentation(W)) {
-      return;
-    }
-  }
-  
-  /**
-   * 6.3.5
-   * Reconnect to presentation
-   * https://w3c.github.io/presentation-api/#reconnecting-to-a-presentation
-   * @param {PresentationRequest} this
-   * @param {String} presentationId
-   */
-  reconnect(presentationId) {
-    return new Promise((resolve, reject) => {
-      // 3.
-      let existingConnection = this.controlledPresentations.find((connection) => {
-                                // TODO: Its controlling browsing context is the current browsing context
-                                connection.state != PresentationConnectionState.terminated &&
-                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
-                                connection === presentationId
-                              });
-      // 4. -> 1.
-      if(existingConnection !== undefined){
-        resolve(existingConnection);  // 2.
-        // 3.
-        if(existingConnection.state == PresentationConnectionState.connecting || PresentationConnectionState.connected){
-          return;
-        }
-        // 4.
-        existingConnection.state = PresentationConnectionState.connecting;
-        PresentationConnectionState.establish();
-        return;
-      }
-
-      existingConnection = this.controlledPresentations.find((connection) => {
-                                // TODO: Its controlling browsing context is not the current browsing context
-                                connection.state != PresentationConnectionState.terminated &&
-                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
-                                connection === id
-                              });
-      if(existingConnection !== undefined){
-        let newConnection = new PresentationConnection(presentationId, existingConnection.url, Role.Controller, guid()); // 2. 3., 4.  
-        newConnection.state = state = PresentationConnectionState.connecting; // 5.
-        this.controlledPresentations.push(S); // 6.
-        resolve(newConnection); // 7.
-        // 8.
-        queueTask(() => {
-          let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: newConnection});
-          fire(event, this);
-        });
-        newConnection.establish();  // 9.
-        return;
-      }
-      reject(new NotFoundError());  // 7.
-    }); 
-  }
-  
-  /**
-   * 6.4.3
-   * https://w3c.github.io/presentation-api/#dom-presentationrequest-getavailability
-   * @param {PresentationRequest} this
-   * @return {Promise<PresentationAvailability>}
-   */
-  getAvailability() {
-    if (this.getAvailabilityPending !== null) {
-      return this.getAvailabilityPending;                      // 1.
-    }
-    
-    let P = new Promise((resolve, reject) => {                 // 2.
-      if (window.navigator.presentation.allowed < DiscoveryAllowance.continous) { // 4.
-        console.warn("Not possible to monitor available presentation displays.");
-        this.getAvailabilityPending = null;
-        return reject(domEx("NOT_SUPPORTED_ERROR"));
-      }
-      
-      if (this.presentationDisplayAvailability !== null) {
-        this.getAvailabilityPending = null;
-        return resolve(this.presentationDisplayAvailability);  // 5.
-      }
-      
-      this.presentationDisplayAvailability = new PresentationAvailability();
-      let A = this.presentationDisplayAvailability;            // 6.
-      window.navigator.presentation.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
-      return window.navigator.presentation.monitor(this).then(() => { // 8.
-        this.getAvailabilityPending = null;
-        return resolve(A);                                     // 9.
-      });
-    });
-    
-    this.getAvailabilityPending = P;
-    return P;                                                  // 3.
+    this.connections = [];
   }
 }
 
@@ -215,7 +71,45 @@ class PresentationConnectionAvailableEvent extends Event {
    */
   constructor(type, eventInitDict) {
     super(type);
-    readOnly(this, "connection", eventInitDict.connection);
+    this.connection = eventInitDict.connection;
+  }
+}
+
+/**
+ * 6.5.4
+ * https://w3c.github.io/presentation-api/#idl-def-presentationconnectioncloseevent
+ */
+class PresentationConnectionCloseEvent extends Event{
+  /**
+   * @param {DOMString} type
+   * @param {PresentationConnectionCloseEventInit} init
+   *  @param {String} init.reason
+   *  @param {DOMString} init.message
+   */
+  constructor(type, init) {
+    if (!init.reason || !PresentationConnectionClosedReasons.some(pccr => pccr === init.reason)) {
+      throw new Error("Illegal close reason");
+    }
+  
+    super(type);
+    this.reason = init.reason;
+    this.message = init.message;
+  }
+}
+
+/**
+ * 6.4 https://w3c.github.io/presentation-api/#interface-presentationavailability
+ */
+class PresentationAvailability {
+  constructor(value) {
+    implement(this, EventTarget);
+    addEventListeners(this, "change");
+    
+    if (value !== undefined) {
+      this.value = value;
+    } else {
+      this.value = false;
+    }
   }
 }
 
@@ -240,9 +134,8 @@ class PresentationConnection {
     this.sessionId = sessionId;
 
     // {presentation identifier}
-    readOnly(this, "id", id);
-    readOnly(this, "url", url);
-    //readOnly(this, "state", PresentationConnectionState.connecting); // #ambigous the spec says this shall be readonly but it shall also be altered quite often o_O
+    this.id = id;
+    this.url = url;
     this.state = PresentationConnectionState.connecting;
         
     this.binaryType = BinaryType.arrayBuffer;
@@ -264,8 +157,8 @@ class PresentationConnection {
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    let p = window.navigator.presentation;
-    return p.connect(this.id, this.sessionId, this.role)
+    ua.closing = false;
+    return ua.connectHandler(this.id, this.sessionId, this.role)
       .catch(() => {
         this.close(PresentationConnectionClosedReasons.error); // 4.
         return false;
@@ -273,7 +166,7 @@ class PresentationConnection {
       .then((reference) => {
         queueTask(() => {
           this.state = PresentationConnectionState.connected;   // 3.
-          p.messageIncomingHandler(this.sessionId, this.role,
+          ua.messageIncomingHandler(this.sessionId, this.role,
             (message) => this.receive(PresentationMessageType.text, message));
           fire(new Event("connect"), this);
         });
@@ -311,7 +204,7 @@ class PresentationConnection {
       throw new Error("Unsupported message Type in PresentationRequest.send");
     }
     
-    window.navigator.presentation.send(this.id, this.sessionId, this.role, messageType, messageOrData).catch(err => { // 4.
+    ua.sendHandler(this.id, this.sessionId, this.role, messageType, messageOrData).catch(err => { // 4.
       this.close(PresentationConnectionClosedReasons.error, err); // 5.
     });
   }
@@ -352,9 +245,10 @@ class PresentationConnection {
     let event = new MessageEvent("message", msgEventInit);
     queueTask(() => fire(event, this)); // 4.
   }
-  
+    
   /**
    * 6.5.5
+   * https://w3c.github.io/presentation-api/#dfn-close-a-presentation-connection
    * @param {PresentationConnection} this
    * @param {PresentationConnectionClosedReasons} closeReason
    * @param {string} closeMessage
@@ -366,10 +260,30 @@ class PresentationConnection {
     this.state = PresentationConnectionState.closed;  // 2.
     this.send({category: "control", command: "close", detail: "closeReason"}); // 3.
     if (closeReason != PresentationConnectionClosedReasons.wentaway) {
-      window.navigator.presentation.close(this, closeReason, closeMessage); // 4.
+      // 4.
+      if (this.closing) {
+        return; // 1.
+      }
+      queueTask(() => { // 2.
+        this.closing = true;
+        let states = [
+          PresentationConnectionState.closed,
+          PresentationConnectionState.connecting,
+          PresentationConnectionState.connected
+        ];
+        if (!(includes(states, this.state))) {
+          return; // 2.1.
+        }
+        if (this.state !== PresentationConnectionState.closed) {
+          this.state = PresentationConnectionState.closed; // 2.2.
+        }
+        let event = new PresentationConnectionCloseEvent("close", new PresentationConnectionCloseEventInit(closeReason, closeMessage));
+        fire(event, this);
+      });
+      return ua.closeHandler(this, closeReason, closeMessage);
     }
   }
-  
+
   /**
    * 6.5.6
    * terminate controlling
@@ -418,37 +332,271 @@ class PresentationConnection {
 
           P.state = PresentationConnectionState.terminated; // 1.2
           fire(new Event("terminate"), P); // 1.3
-        })
+        });
       }
     });
   }
 }
 
-/**
- * 6.5.4a
- * https://w3c.github.io/presentation-api/#idl-def-presentationconnectioncloseevent
- */
-class PresentationConnectionCloseEvent extends Event{
-  /**
-   * @param {DOMString} type
-   */
-  constructor(type, eventInitDict) {
-    super(type);
-  }
-}
+// https://w3c.github.io/presentation-api/#idl-def-presentationrequest
+class PresentationRequest {
+  // 6.3.1
+  constructor(urls) {
+    implement(this, EventTarget);
+    addEventListeners(this, "connectionavailable");
 
-class PresentationConnectionCloseEventInit {
-  /**
-   * 6.5.4b
-   * @param {String} reason
-   * @param {DOMString} message
-   */
-  constructor(reason, message) {
-    if (!reason || PresentationConnectionClosedReasons.some(pccr => pccr === reason)) {
-      throw new Error("Illegal close reason");
+    if (!urls) {
+      throw domEx("NOT_SUPPORTED_ERROR"); // 1.
     }
-    this.reason = reason;
-    this.message = message;
+    
+    if (!(urls instanceof Array)) {
+      urls = [urls]; //2.
+    }
+    
+    // #TODO check if implementation is according to spec
+    // spec says baseurl should come from https://html.spec.whatwg.org/multipage/webappapis.html#current-settings-object
+    this.presentationUrls = []; //3.
+    let baseUrl = new RegExp(/^.*\//).exec(window.location.href)[0];
+    urls.forEach(url => {
+      // url resolving like in nodejs (https://nodejs.org/api/url.html) is experimental: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
+      this.presentationUrls.push(new URL(url, baseUrl)); // 4., throws SyntaxError correctly
+    });
+    
+    this.presentationAvailabilityPromise = null;
+    this.presentationDisplayAvailability = null;
+    this.getAvailabilityPending = null;
+  }
+  
+  /**
+   * 6.3.2 https://w3c.github.io/presentation-api/#dom-presentationrequest-start
+   * @param {PresentationRequest} this
+   * @return {Promise<PresentationConnection>}
+   */
+  start() {
+    return new Promise((resolve, reject) => {
+      if (!Browser.allowedToShowPopup()) {
+        return reject(new InvalidAccessError()); // 1.
+      }
+      
+      if (document.startPromise) {
+        return reject(new OperationError()); // 2.+3. (somewhat simplified)
+      }
+
+      // 4.
+      let P = new Promise((resolve, reject) => {
+        // 6.
+        if (!ua.monitoring) {
+          this.monitor();
+        }
+        
+        ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
+        .then(D => {
+          // 11. - 12.
+          this.startPresentationConnection(D, resolve);
+        });
+      });
+      return P; // 5.
+    });
+  }
+  
+  /**
+   * 6.3.3 https://w3c.github.io/presentation-api/#starting-a-presentation-from-a-default-presentation-request
+   * @param {document} W
+   * @param {PresentationDisplay} D
+   */
+  static startDefault(W, D) {
+    let defaultReq = window.navigator.presentation.defaultRequest;
+    if (defaultReq === null) {
+      return;
+    }
+    
+    let presentationUrls = defaultReq.presentationUrls; // 1.
+    if (Browser.isSandboxedPresentation(W)) {
+      return;
+    }
+    // #TODO
+  }
+  
+  /**
+   * 6.3.4 https://w3c.github.io/presentation-api/#dfn-start-a-presentation-connection
+   * @param {PresentationRequest} this
+   * @param {PresentationDisplay} D
+   * @param {Function} P - resolve-function of Promise, gets resolved with new PresentationConnection
+   */
+  startPresentationConnection(D, P) {
+    console.log("starting Connection to: ", D);
+    let I = guid();
+    let presentationUrls = this.presentationUrls; // 4.
+    let pUrl = "";
+
+    // 5.
+    presentationUrls.some(presentationUrl => {
+      if (ua.availablePresentationDisplays.find(apd => apd.availabilityUrl === presentationUrl)) {
+        pUrl = presentationUrl.toString();
+        return true;
+      }
+    });
+
+    let S = new PresentationConnection(I, pUrl, Role.Controller, guid()); // 2., 3., 6.
+    ua.controlledPresentations.push(S); // 7.
+    
+    // 8.
+    P(S);
+
+    // 9.
+    queueTask(() => {
+      let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: S});
+      fire(event, this);
+    })
+
+    // 10.+ 12.
+    ua.createContextHandler(D, pUrl, I, S.sessionId)
+    .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
+    .then (() => S.establish()); /* 13. */
+  }
+
+  /**
+   * 6.3.5
+   * Reconnect to presentation
+   * https://w3c.github.io/presentation-api/#reconnecting-to-a-presentation
+   * @param {PresentationRequest} this
+   * @param {String} presentationId
+   */
+  reconnect(presentationId) {
+    return new Promise((resolve, reject) => {
+      // 3.
+      let existingConnection = this.controlledPresentations.find((connection) => {
+                                // #TODO: Its controlling browsing context is the current browsing context
+                                connection.state != PresentationConnectionState.terminated &&
+                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
+                                connection === presentationId
+                              });
+      // 4. -> 1.
+      if(existingConnection !== undefined){
+        resolve(existingConnection);  // 2.
+        // 3.
+        if(existingConnection.state == PresentationConnectionState.connecting || PresentationConnectionState.connected){
+          return;
+        }
+        // 4.
+        existingConnection.state = PresentationConnectionState.connecting;
+        PresentationConnectionState.establish();
+        return;
+      }
+
+      existingConnection = this.controlledPresentations.find((connection) => {
+                                // TODO: Its controlling browsing context is not the current browsing context
+                                connection.state != PresentationConnectionState.terminated &&
+                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
+                                connection === id
+                              });
+      if(existingConnection !== undefined){
+        let newConnection = new PresentationConnection(presentationId, existingConnection.url, Role.Controller, guid()); // 2. 3., 4.
+        newConnection.state = state = PresentationConnectionState.connecting; // 5.
+        this.controlledPresentations.push(S); // 6.
+        resolve(newConnection); // 7.
+        // 8.
+        queueTask(() => {
+          let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: newConnection});
+          fire(event, this);
+        });
+        newConnection.establish();  // 9.
+        return;
+      }
+      reject(new NotFoundError());  // 7.
+    });
+  }
+  
+  /**
+   * 6.4.3
+   * https://w3c.github.io/presentation-api/#dom-presentationrequest-getavailability
+   * @param {PresentationRequest} this
+   * @return {Promise<PresentationAvailability>}
+   */
+  getAvailability() {
+    if (this.getAvailabilityPending !== null) {
+      return this.getAvailabilityPending;                      // 1.
+    }
+    
+    let P = new Promise((resolve, reject) => {                 // 2.
+      if (ua.allowed < DiscoveryAllowance.continous) { // 4.
+        console.warn("Not possible to monitor available presentation displays.");
+        this.getAvailabilityPending = null;
+        return reject(domEx("NOT_SUPPORTED_ERROR"));
+      }
+      
+      if (this.presentationDisplayAvailability !== null) {
+        this.getAvailabilityPending = null;
+        return resolve(this.presentationDisplayAvailability);  // 5.
+      }
+      
+      this.presentationDisplayAvailability = new PresentationAvailability();
+      let A = this.presentationDisplayAvailability;            // 6.
+      ua.availabilityObjects.push({A: A, urls: this.presentationUrls}); // 7.
+      return this.monitor().then(() => { // 8.
+        this.getAvailabilityPending = null;
+        return resolve(A);                                     // 9.
+      });
+    });
+    
+    this.getAvailabilityPending = P;
+    return P;                                                  // 3.
+  }
+
+   /**
+   * 6.4.4 Monitoring the list of available presentation Displays
+   * theres been a major Rework in https://github.com/w3c/presentation-api/commit/0c800c5c5bee2573735e4b75b117bca77937a0d9
+   * @param {PresentationRequest} this
+   * @return {Promise}
+   */
+  monitor() {
+    console.log("monitoring");
+    this.monitoring = true;
+    let availabilitySet = ua.availabilityObjects || [];// 1.
+    
+    if (ua.pendingSelection && this && this.presentationDisplayAvailability === null) { // 2.
+      let A = new PresentationAvailability();                                // 2.1
+      availabilitySet.push({A: A, urls: this.presentationUrls});        // 2.2
+    }
+    
+    let newDisplays = [];                                 // 3.
+    if (ua.possible && ua.allowed) {                  // 4.
+      return ua.monitorHandler().then((displays) => {          // 5.
+        newDisplays = displays;
+        ua.availablePresentationDisplays = [];          // 6.
+        availabilitySet.forEach(availability => {         // 7.
+          let previousAvailability = availability.A.value;  // 7.1
+          let newAvailability = false;                      // 7.2
+          // console.log(availability);
+          availability.urls.forEach(availabilityUrl => {    // 7.3.
+            newDisplays.forEach(display => {                  // 7.3.1.
+              let tuple = {availabilityUrl, display};
+              //console.log(this.availablePresentationDisplays, tuple);
+              if (!includes(ua.availablePresentationDisplays, tuple)) {
+                ua.availablePresentationDisplays.push(tuple); // 7.3.1.1.
+                //console.log("display detected: ", tuple);
+              }
+              ua.monitoring = false;
+              newAvailability = true;                           // 7.3.1.2
+            });
+          });
+
+          if (!availability.A.value) {
+            availability.A.value = newAvailability;         // 7.4
+          }
+
+          if (previousAvailability !== newAvailability) {
+            queueTask(() => {                               // 7.5
+              availability.A.value = newAvailability;
+              fire(new Event("change"), availability.A);
+            });
+          }
+        });
+      });
+    } else {
+      ua.monitoring = false;
+      return Promise.reject();
+    }
   }
 }
 
@@ -460,109 +608,10 @@ class PresentationReceiver {
   /**
    * 6.6
    * create receiver inside {ReceivingContext}
-   * @param {Display} D - has a human-readable name
    */
-  constructor(D) {
-    // Contains the presentation connections created by a receiving browsing context for the receiving user agent.
-    // All presentation connections in this set share the same presentation URL and presentation identifier.
-    this.presentationControllers = []; // {[PresentationConnection]}
-    
-    // exposes the current set of presentation controllers to the receiving application.
-    this.controllersMonitor = null; // {PresentationConnectionList}
-    
-    // provides the presentation controllers monitor once the initial presentation connection is established.
-    this.controllersPromise = null; // {Promise<PresentationConnectionList>}
-    
-    Object.defineProperty(this, "connectionList", {
-      get: function() {
-        console.log(new Date().toTimeString(), this.controllersPromise)
-        if (this.controllersPromise !== null) {
-          // 1.
-          return this.controllersPromise;
-        } else {
-          // 2.
-          let temp = null;
-          this.controllersPromise = new Promise((resolve, reject) => {
-            temp = resolve;
-          });
-          this.controllersPromise.resolve = temp;
-
-          // 4.
-          if (this.controllersMonitor !== null) {
-            this.controllersPromise.resolve(this.controllersMonitor);
-          }
-
-          // 3.
-          return this.controllersPromise;
-        }
-      }
-    }); 
-
-    window.navigator.presentation.hostHandler(D)
-    .then(c => this.createReceivingContext(c.display, c.url, c.presentationId, c.sessionId)); // c is the contextCreationInfo
-  }
-  
-  /**
-   * 6.6.1 
-   * actually there's a lot more #todo but i dont want to implement these steps by hand so lets use an iframe
-   * https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context
-   * @param {PresentationDisplay} D
-   * @param {String} presentationUrl - the presentation request url (should be in D)
-   * @param {String} presentationId - the presentation identifier (gets generated on creation)
-   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
-   */
-  createReceivingContext(D, presentationUrl, presentationId, sessionId) {
-    // 1. - 11.
-    let C = createContext(presentationUrl);
-    this.window = C.contentWindow;
-    
-    // 12.
-    window.navigator.presentation.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
-      this.handleClient(I, presentationId, presentationUrl, sessionId);
-    });
-    
-    // Connect initiating controlling context
-    this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
-  }
-
-  /**
-   * 6.7.1
-   * https://w3c.github.io/presentation-api/#monitoring-incoming-presentation-connections
-   * @param {String} I - the presentation identifier passed by the controlling browsing context with the incoming connection request
-   * @param {String} this.presentationId - the presentation identifier used on context creation
-   * @param {String} this.presentationUrl - the presentation request url used on context creation
-   * @param {String} sessionId - identifier for the 1-1 relation of controller and receiver
-   */
-  handleClient(I, presentationId, presentationUrl, sessionId) {
-    if (I !== presentationId) {
-      return false;                                                 // 1.
-    }
-    let S = new PresentationConnection(I, presentationUrl, Role.Receiver, sessionId); // 2. - 4.
-    S.establish().then(success => {                                 // 5. - 6.
-      this.presentationControllers.push(S);                         // 7.
-      if (this.controllersMonitor === null) {                       // 8.
-        this.controllersMonitor = new PresentationConnectionList();   // 8.1
-        this.controllersMonitor.connections = this.controllersMonitor.connections.concat(this.presentationControllers); // 8.2
-        if (this.controllersPromise !== null) {
-          this.controllersPromise.resolve(this.controllersMonitor);
-        }
-        return;
-      } else {                                                      // 9.
-        this.controllersMonitor.connections = this.controllersMonitor.connections.concat(this.presentationControllers); // 9.1
-        queueTask(() => {
-          let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: S});
-          fire(event, this.controllersMonitor);
-        });
-      }
-    });
-  }
-}
-
-class PresentationConnectionList {
   constructor() {
-    implement(this, EventTarget);
-    addEventListeners(this, "connectionavailable");
-
-    this.connections = [];
+    Object.defineProperty(this, "connectionList", {
+      get: () => ua.getConnectionList()
+    });
   }
 }

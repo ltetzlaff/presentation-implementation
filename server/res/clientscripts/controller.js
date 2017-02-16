@@ -1,3 +1,5 @@
+let p = window.navigator.presentation;
+
 let UI = {
   disabledColor: "#999",
   enabledColor: "#000",
@@ -12,15 +14,13 @@ let UI = {
 }
 
 ready(() => {
-  let p = window.navigator.presentation;
-
   $("#discoveryAllowance").addEventListener("change", function() {
     p.allowed = Number.parseInt(this.options[this.selectedIndex].value);
     p.refreshContinousMonitoring();
   });
-
+  
   $("#stop").addEventListener("click", () => {
-    window.activeConnection.terminateAsController();
+    window.activeConnection.terminate();
   });
 
   $("#send").onchange = function() {
