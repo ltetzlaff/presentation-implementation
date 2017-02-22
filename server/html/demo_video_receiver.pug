@@ -1,0 +1,38 @@
+block js
+  script(src="util.js")
+  script(src="clientscripts/receivingContext.js")
+  script.
+    /*setInterval(() => {
+      console.log(navigator.presentation);
+    }, 5000);*/
+    // Example code
+    var addConnection = connection => {
+      connection.onmessage = messageEvent => {
+        console.log(messageEvent);
+        //connection.send("message pingpong: " + messageEvent.data);
+        switch (messageEvent.data) {
+          case "play":
+            $("#video").contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
+            connection.send("played");
+            break;
+          case "pause":
+            $("#video").contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', "*");
+            connection.send("paused");
+            break;
+        }
+      }
+    };
+
+    window.addEventListener("presentationLoaded", () => {
+      console.log(navigator.presentation.receiver);
+      navigator.presentation.receiver.connectionList.then(list => {
+        console.log(list);
+        list.connections.map(addConnection);
+        list.onconnectionavailable = evt => addConnection(evt.connection);
+      });
+    });
+    
+
+  
+block content
+  iframe#video(width=480, height=270, src="https://www.youtube.com/embed/RY8aCIfERHU?enablejsapi=1")

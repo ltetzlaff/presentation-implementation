@@ -1,0 +1,84 @@
+extends layout.pug
+
+block js
+  script.
+    function remember(key) {
+      return localStorage[key];
+    }
+    
+    function learn(key, value) {
+      localStorage[key] = value;
+    }
+    
+    function forget(key) {
+      localStorage[key] = null;
+    }
+    
+    let playing = false;
+    let activeConnection;
+
+    ready(() => {
+      let presBtn = $("#present");
+      
+      function handleAvailability(value) {
+        if (value) {
+          presBtn.classList.add("available");
+        } else {
+          presBtn.classList.remove("available");
+        }
+      }
+
+      let receiverPage = getBaseUrl() + "demo_video_receiver";
+      let request = new PresentationRequest(receiverPage);
+      request.getAvailability()
+      .then(availability => {
+        handleAvailability(availability.value);
+        availability.onchange = function() { handleAvailability(this.value);};
+      })
+      .catch(() => handleAvailability(false));
+      
+      presBtn.onclick = () => {
+        request.start()
+        .then(conn => {
+          learn("presentationId", conn.id);
+          activeConnection = conn;
+          activeConnection.onconnect = () => {
+            presBtn.classList.add("connected");
+            
+            activeConnection.onmessage = msg => {
+              console.log(activeConnection.id + " | message: ", msg);
+            }
+          };
+          
+          activeConnection.onclose = () => {
+            activeConnection = null;
+            presBtn.classList.remove("connected");
+            presBtn.className.add("closed");
+          };
+          
+          activeConnection.onterminate = () => {
+            forget("presentationId");
+            activeConnection = null;
+            presBtn.classList.remove("connected", "closed");
+            presBtn.className.add("terminated");
+          };
+        });
+      };
+
+      $("#playpause").onclick = () => {
+        activeConnection.send(playing ? "pause" : "play");
+        playing ^= true;
+      };
+    });
+block content
+  div
+    button#present
+    iframe#video(width=480, height=270, src="https://www.youtube.com/embed/XGSy3_Czz8k")
+    div.controls
+      button#playpause
+  div
+    h3 Monitoring
+    select#discoveryAllowance
+      option(value=2) continous
+      option(value=1) manual
+      option(value=0) none

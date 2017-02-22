@@ -16,6 +16,10 @@ function $$(selector, el) {
  // return Array.prototype.slice.call(el.querySelectorAll(selector));
 }
 
+function getBaseUrl() {
+  return new RegExp(/^.*\//).exec(window.location.href)[0];
+}
+
 function guid() {
   function s4() {
     return Math.floor((1 + Math.random()) * 0x10000)
@@ -50,7 +54,7 @@ function ajax(method, url, data) {
   return new Promise((resolve, reject) => {
     let r = new XMLHttpRequest();
     r.timeout = 60000;
-    
+
     r.onload = function() {
       if (this.status >= 200 && this.status < 400) {
         // Success
@@ -73,12 +77,25 @@ function ajax(method, url, data) {
       reject(404);
     }*/
     r.ontimeout = () => {
+      console.log("timeout");
       reject(403);
     }
     
     r.open(method, url, true);
     r.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
     r.send(JSON.stringify(data));
+  });
+}
+
+/**
+ * Promisified Timeout that resolves after ms
+ * .then(value) can be chained
+ * @param {Number} ms - milliseconds
+ * @param {any} value
+ */
+function Delay(ms, value) {
+  return new Promise((resolve, _) => {
+    setTimeout(resolve, ms, value);
   });
 }
 
@@ -100,7 +117,11 @@ function ajaxLong(url, initData, onSuccess, onStop){
   }
   
   return ajax('GET', url, initData)
-  .catch(() => setTimeout(() => {ajaxLong(url, initData, onSuccess, onStop)}, 5000))
+  .catch(() => {
+    return Delay(5000).then(() => {
+      return ajaxLong(url, initData, onSuccess, onStop);  
+    });
+  })
   .then((message) => {
     switch (typeof onSuccess) {
       case "function":
@@ -112,7 +133,7 @@ function ajaxLong(url, initData, onSuccess, onStop){
     }
 
     return ajaxLong(url, initData, onSuccess, onStop);
-  });
+  })
 }
 
 function queueTask(cb) {
@@ -184,9 +205,8 @@ function createContext(url) {
   let ifrm = document.createElement("iframe");
   // scrolling="no" marginwidth="0" marginheight="0" frameborder="0" vspace="0" hspace="0">
   ifrm.setAttribute("src", url);
-  ifrm.setAttribute("sandbox", "allow-scripts");
-  ifrm.style.width = "100%";
-  ifrm.style.height = "100%";
+  //ifrm.setAttribute("sandbox", "allow-scripts");
+  ifrm.className = "fullscreen";
   document.body.appendChild(ifrm);
   return ifrm;
 }

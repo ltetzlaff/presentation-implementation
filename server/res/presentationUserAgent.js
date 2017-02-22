@@ -76,16 +76,28 @@ class PresentationUserAgent extends Presentation {
    */
   createReceivingContext(D, presentationUrl, presentationId, sessionId) {
     // 1. - 11.
-    let C = createContext(presentationUrl);
-    C.addEventListener("message", ua.receiveMessage, false);
-    
-    // 12.
-    this.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
-      this.handleClient(I, presentationId, presentationUrl, sessionId);
+    return new Promise((resolve, reject) => {
+      let ifrm = createContext(presentationUrl);
+      
+      window.addEventListener("message", function (e) {
+        if (e.source === ifrm.contentWindow) {
+          if (e.data === "READY") {
+            resolve(ifrm);
+          } else {
+            reject();
+          }
+        }
+      });
+      ifrm.onload = () => ifrm.contentWindow.postMessage("RECEIVE", "*");
+    }).then(() => {
+      // 12.
+      this.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
+        this.handleClient(I, presentationId, presentationUrl, sessionId);
+      });
+      
+      // Connect initiating controlling context
+      this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
     });
-    
-    // Connect initiating controlling context
-    this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
   }
 
   getConnectionList() {
