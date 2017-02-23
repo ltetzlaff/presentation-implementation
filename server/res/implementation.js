@@ -1,49 +1,6 @@
 let server = "";
 let CLIENT_NAME = "John Doe";
 
-/*
- #TODO cancel the selection (denying permission).
- #TODO show the user whether an available display is currently in use,
- to facilitate presentations that can make use of multiple displays.
-*/
-let selectDisplayUI = (displays) => {
-  return new Promise((resolve, reject) => {
-    // Load + Reference iframe
-    let picker = createContext("/auxiliary/selectDisplay.html");
-
-    picker.setAttribute("frameBorder", "0");
-    //picker.className = "selectDisplay";
-    picker.style.width = "300px";
-    picker.style.height = "350px";
-    picker.style.position = "fixed";
-    picker.style.right = "0%";
-    picker.style.top = "100px";
-    picker.style.zIndex = "10";
-
-    
-    // Communication from iframe (get selected display)
-    window.addEventListener("message", function (e) {
-      if (e.source === picker.contentWindow) {
-        window.removeEventListener("message", this);
-        picker.remove();
-
-        let selectedDisplay = displays.find(d => d.displayId === e.data);
-        if(selectedDisplay === undefined){
-          reject("dismissed");
-          return;
-        }
-        resolve(selectedDisplay);
-      }
-    });
-    
-    // Communication to iframe (send displays to choose from)
-    picker.onload = () => {
-      picker.contentWindow.postMessage(displays, "*");
-    }
-  });
-};
-   
-
 const handlers = {
   host            :  (D) => {
     // This resolves to the contextCreationInfo provided by the controller via createContextHandler below
