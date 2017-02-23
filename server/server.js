@@ -283,7 +283,15 @@ monitorIO.on('connection', function(socket){
     });
 
     // Here goes everything display communication related
-    socket.on('listener', function(msg){
+    socket.on('prepareMyRoom', function(msg){
+      let b = req.body;
+      req.display.presentationId = b.presentationId;
+      req.display.send("prepared", {
+          display: req.display,
+          url: b.url,
+          presentationId: b.presentationId,
+          sessionId: b.sessionId
+        });
       // TODO
         console.log('message: ' + msg.msg);
         console.log('id: ' + socket.id);
