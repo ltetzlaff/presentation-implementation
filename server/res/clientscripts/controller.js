@@ -1,62 +1,101 @@
 let p = window.navigator.presentation;
 
-let UI = {
-  disabledColor: "#999",
-  enabledColor: "#000",
-  connect: () => {
-    $("#connect").style.color = UI.disabledColor;
-    $("#disconnect").style.color = UI.enabledColor;
-  },
-  disconnect: () => {
-    $("#connect").style.color = UI.enabledColor;
-    $("#disconnect").style.color = UI.disabledColor;
-  }
+function remember(key) {
+  return localStorage[key];
 }
+
+function learn(key, value) {
+  localStorage[key] = value;
+}
+
+function forget(key) {
+  //localStorage[key] = null;
+  delete localStorage[key];
+}
+
+forget("presentationId");
+
+let playing = false;
+let activeConnection;
 
 ready(() => {
   $("#discoveryAllowance").addEventListener("change", function() {
     p.allowed = Number.parseInt(this.options[this.selectedIndex].value);
     p.refreshContinousMonitoring();
   });
-  
-  $("#stop").addEventListener("click", () => {
-    window.activeConnection.terminate();
-  });
 
-  $("#send").onchange = function() {
-    window.activeConnection.send(this.value);
+  let presBtn = $("#present");
+  
+  function handleAvailability(value) {
+    console.log("handleAvailability", value);
+    if (value) {
+      presBtn.classList.add("available");
+    } else {
+      presBtn.classList.remove("available");
+    }
+  }
+
+  let receiverPage = getBaseUrl() + "demo_video_receiver";
+  let request = new PresentationRequest(receiverPage);
+  p.defaultRequest = request;
+  request.getAvailability()
+  .then(availability => {
+    handleAvailability(availability.value);
+    availability.onchange = function() { handleAvailability(this.value);};
+  })
+  .catch(() => handleAvailability(false));
+  
+  let setConnection = conn => {
+    learn("presentationId", conn.id);
+    activeConnection = conn;
+    activeConnection.onconnect = () => {
+      presBtn.classList.add("connected");
+      
+      activeConnection.onmessage = msg => {
+        console.log(activeConnection.id + " | message: ", msg);
+      }
+
+      // Lets notice how it loads delayed
+      setTimeout(() => {
+        activeConnection.send({command: "load", url: $("#video").getAttribute("src")})
+      }, 2000);
+      
+    };
+    
+    activeConnection.onclose = () => {
+      activeConnection = null;
+      presBtn.classList.remove("connected");
+      presBtn.classList.add("closed");
+    };
+    
+    activeConnection.onterminate = () => {
+      forget("presentationId");
+      activeConnection = null;
+      presBtn.classList.remove("connected", "closed");
+      presBtn.classList.add("terminated");
+    };
   };
 
-  $("#disconnect").addEventListener("click", () => {
-    window.activeConnection.close();
-  });
-
-  $("#connect").addEventListener("click", () => {
-    p.defaultRequest = new PresentationRequest($("#url").value);
-    p.defaultRequest.onconnectionavailable = e => {
-      // Disconnect prior connections
-      // #TODO https://w3c.github.io/presentation-api/#monitor-connection-s-state-and-exchange-data-example
-
-      window.activeConnection = e.connection;
-      let conn = window.activeConnection;
-      
-      conn.onconnect = () => {
-        UI.connect();
-
-        conn.onmessage = messageEvent => {
-          console.log("received message:", messageEvent.data);
-          //conn.send("Message Pingpong");
-        }
-      }
-      conn.onclose = () => {
-        UI.disconnect();
-      }
+  presBtn.onclick = () => {
+    if (activeConnection) {
+      console.log("closing");
+      activeConnection.close();
+    } else if (remember("presentationId")) {
+      console.log("reconnecting");
+      request.reconnect(remember("presentationId")).then(setConnection);
+    } else {    
+      request.start().then(setConnection);
     }
+  };
 
-    // Go
-    p.defaultRequest.getAvailability().then(a => {
-      console.log("availability: ", a);
-      p.defaultRequest.start().catch(e => console.log(e));
-    });
-  });
+  $("#playpause").onclick = function() {
+    activeConnection.send({command: playing ? "pause" : "play"});
+    if (playing) {
+      this.classList.remove("playing");
+    } else {
+      this.classList.add("playing");
+    }
+    
+    playing ^= true;
+  };
 });

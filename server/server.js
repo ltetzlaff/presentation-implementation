@@ -68,6 +68,18 @@ class Display extends Entity {
     makeHiddenProp(this, "freshSessions", []);
   }
 
+  removeSession(sessionId) {
+    let i = -1;
+    i = this.sessions.indexOf(s => s.sessionId === sessionId)
+    if (i >= 0) {
+      this.sessions.splice(i, 1);
+    }
+    i = this.freshSessions.indexOf(s => s.sessionId === sessionId);
+    if (i >= 0) {
+      this.freshSessions.splice(i, 1);
+    }
+  }
+
   getSession(sessionId) {
     return this.sessions.find(s => s.sessionId === sessionId) ||
       this.freshSessions.find(s => s.sessionId === sessionId);
@@ -83,7 +95,7 @@ const router = express.Router();
 // List all participants etc
 router.get("/", (req, res) => res.render("overview", {title: "Overview"}));
 
-["receiver", "demoPage", "controller"].forEach(page => {
+["receiver", "demoPage", "controller", "demo_video_controller", "demo_video_receiver"].forEach(page => {
   router.get("/" + page, (req, res) => res.render(page, {title: page}));
 });
 
@@ -183,9 +195,7 @@ router.get("/getMail/:sessionId/:role", (req, res) => {
       res.status(401).send("Unknown Role " + req.role).end();
       return;
   }
-  recipient.drain("message", msg => {
-    res.send(msg)
-  });
+  recipient.drain("message", msg => res.send(msg));
 });
 
 router.post("/sendMail/:sessionId/:role", (req, res) => {
@@ -203,6 +213,28 @@ router.post("/sendMail/:sessionId/:role", (req, res) => {
   }
   
   recipient.send("message", req.body.data)
+  res.status(200).end();
+});
+
+/**
+ * req.body: {reason: PresentationConnectionClosedReasons, message: ""}
+ */
+router.post("/close/:sessionId/:role", (req, res) => {
+  let recipient;
+  switch (req.role) {
+    case Role.Controller:
+      recipient = req.display; // get receiver
+      break;
+    case Role.Receiver:
+      recipient = req.display.getSession(req.params.sessionId); // get ctrl
+      break;
+    default:
+      res.status(401).send("Unknown Role " + req.role).end();
+      return;
+  }
+
+  recipient.send("message", req.body)
+  req.display.removeSession(req.params.sessionId);
   res.status(200).end();
 });
 

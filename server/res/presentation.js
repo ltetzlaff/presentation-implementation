@@ -87,7 +87,7 @@ class PresentationConnectionCloseEvent extends Event{
    *  @param {DOMString} init.message
    */
   constructor(type, init) {
-    if (!init.reason || !PresentationConnectionClosedReasons.some(pccr => pccr === init.reason)) {
+    if (!init.reason || !Object.keys(PresentationConnectionClosedReasons).some(pccr => pccr === init.reason)) {
       throw new Error("Illegal close reason");
     }
   
@@ -146,32 +146,27 @@ class PresentationConnection {
    * 6.5.1
    * connect
    * @param {PresentationConnection} this
-   * @return {Promise<boolean>}
+   * @return {Promise}
    */
   establish() {
     // 1.
     if (this.state !== PresentationConnectionState.connecting) {
-      console.warn("Establishing but not connecting, aborting..");
-      return;
+      return Promise.reject("Establishing but not connecting, aborting..");
     }
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    ua.closing = false;
+    this.closing = false;
     return ua.connectHandler(this.id, this.sessionId, this.role)
-      .catch(() => {
-        this.close(PresentationConnectionClosedReasons.error); // 4.
-        return false;
-      })
-      .then((reference) => {
-        queueTask(() => {
-          this.state = PresentationConnectionState.connected;   // 3.
-          ua.messageIncomingHandler(this.sessionId, this.role,
-            (message) => this.receive(PresentationMessageType.text, message));
-          fire(new Event("connect"), this);
-        });
-        return true;
+    .catch(() => this.close(PresentationConnectionClosedReasons.error)) // 4.
+    .then(() => {
+      queueTask(() => {
+        this.state = PresentationConnectionState.connected;   // 3.
+        ua.messageIncomingHandler(this.sessionId, this.role,
+          message => this.receive(PresentationMessageType.text, message));
+        fire(new Event("connect"), this);
       });
+    });
   }
   
   /**
@@ -181,12 +176,13 @@ class PresentationConnection {
    * @param {payload data} messageOrData
    */
   send(messageOrData) {
+    console.log("send:", messageOrData);
     if (this.state !== PresentationConnectionState.connected) {
       throw domEx("INVALID_STATE_ERROR"); // 1.
     }
     
     // 2.
-    if (this.state == PresentationConnectionState.closed) {
+    if (this.closing) {
       return;
     }
     
@@ -204,7 +200,7 @@ class PresentationConnection {
       throw new Error("Unsupported message Type in PresentationRequest.send");
     }
     
-    ua.sendHandler(this.id, this.sessionId, this.role, messageType, messageOrData).catch(err => { // 4.
+    ua.sendHandler(this.sessionId, this.role, messageType, messageOrData).catch(err => { // 4.
       this.close(PresentationConnectionClosedReasons.error, err); // 5.
     });
   }
@@ -217,6 +213,7 @@ class PresentationConnection {
    * @param {string|binary} messageData
    */
   receive(messageType, messageData) {
+    console.log("received message: ", messageData);
     if (this.state !== PresentationConnectionState.connected) {
       return; // 1.
     }
@@ -253,12 +250,14 @@ class PresentationConnection {
    * @param {PresentationConnectionClosedReasons} closeReason
    * @param {string} closeMessage
    */
-  close(closeReason, closeMessage) {
-    if (!(this.state == PresentationConnectionState.connecting || this.state == PresentationConnectionState.connected)) {
+  close(closeReason = PresentationConnectionClosedReasons.closed, closeMessage) {
+    if (!(this.state == PresentationConnectionState.connecting ||
+          this.state == PresentationConnectionState.connected)) {
       return;                                         // 1.
     }
+    // Inverted following two because send relies on state being unclosed
+    ua.closeHandler(this.sessionId, this.role, closeReason, closeMessage); // 3.
     this.state = PresentationConnectionState.closed;  // 2.
-    this.send({category: "control", command: "close", detail: "closeReason"}); // 3.
     if (closeReason != PresentationConnectionClosedReasons.wentaway) {
       // 4.
       if (this.closing) {
@@ -277,10 +276,9 @@ class PresentationConnection {
         if (this.state !== PresentationConnectionState.closed) {
           this.state = PresentationConnectionState.closed; // 2.2.
         }
-        let event = new PresentationConnectionCloseEvent("close", new PresentationConnectionCloseEventInit(closeReason, closeMessage));
+        let event = new PresentationConnectionCloseEvent("close", {reason: closeReason, message: closeMessage});
         fire(event, this);
       });
-      return ua.closeHandler(this, closeReason, closeMessage);
     }
   }
 
@@ -293,7 +291,7 @@ class PresentationConnection {
       return; // 1.
     }
     
-    window.navigator.presentation.controlledPresentations.forEach(knownConnection => { // 2.
+    ua.controlledPresentations.forEach(knownConnection => { // 2.
       if (this.id === knownConnection.id && knownConnection.state == PresentationConnectionState.connected) { // 2.1
         queueTask(() => {
           knownConnection.state = PresentationConnectionState.terminated; // 2.1.1
@@ -353,10 +351,8 @@ class PresentationRequest {
       urls = [urls]; //2.
     }
     
-    // #TODO check if implementation is according to spec
-    // spec says baseurl should come from https://html.spec.whatwg.org/multipage/webappapis.html#current-settings-object
     this.presentationUrls = []; //3.
-    let baseUrl = new RegExp(/^.*\//).exec(window.location.href)[0];
+    let baseUrl = getBaseUrl();
     urls.forEach(url => {
       // url resolving like in nodejs (https://nodejs.org/api/url.html) is experimental: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
       this.presentationUrls.push(new URL(url, baseUrl)); // 4., throws SyntaxError correctly
@@ -373,30 +369,28 @@ class PresentationRequest {
    * @return {Promise<PresentationConnection>}
    */
   start() {
-    return new Promise((resolve, reject) => {
-      if (!Browser.allowedToShowPopup()) {
-        return reject(new InvalidAccessError()); // 1.
+    if (!Browser.allowedToShowPopup()) {
+      return Promise.reject(new InvalidAccessError()); // 1.
+    }
+    
+    if (document.startPromise) {
+      return Promise.reject(new OperationError()); // 2.+3. (somewhat simplified)
+    }
+
+    // 4.
+    let P = new Promise((resolve, reject) => {
+      // 6.
+      if (!ua.monitoring) {
+        this.monitor();
       }
       
-      if (document.startPromise) {
-        return reject(new OperationError()); // 2.+3. (somewhat simplified)
-      }
-
-      // 4.
-      let P = new Promise((resolve, reject) => {
-        // 6.
-        if (!ua.monitoring) {
-          this.monitor();
-        }
-        
-        ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
-        .then(D => {
-          // 11. - 12.
-          this.startPresentationConnection(D, resolve);
-        });
+      ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
+      .then(D => {
+        // 11. - 12.
+        this.startPresentationConnection(D, resolve);
       });
-      return P; // 5.
     });
+    return P; // 5.
   }
   
   /**
@@ -449,7 +443,8 @@ class PresentationRequest {
       fire(event, this);
     })
 
-    // 10.+ 12.
+    // 10.+ 12. 
+    // "tell U to create receiving browsing context" -> fire and forget
     ua.createContextHandler(D, pUrl, I, S.sessionId)
     .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
     .then (() => S.establish()); /* 13. */
@@ -463,47 +458,53 @@ class PresentationRequest {
    * @param {String} presentationId
    */
   reconnect(presentationId) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => { // 1., 2.
       // 3.
-      let existingConnection = this.controlledPresentations.find((connection) => {
-                                // #TODO: Its controlling browsing context is the current browsing context
-                                connection.state != PresentationConnectionState.terminated &&
-                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
-                                connection === presentationId
-                              });
-      // 4. -> 1.
-      if(existingConnection !== undefined){
-        resolve(existingConnection);  // 2.
-        // 3.
-        if(existingConnection.state == PresentationConnectionState.connecting || PresentationConnectionState.connected){
-          return;
-        }
-        // 4.
-        existingConnection.state = PresentationConnectionState.connecting;
-        PresentationConnectionState.establish();
-        return;
-      }
+      let existingConnection = ua.controlledPresentations.find(connection => {
+        return true /* #TODO: Its controlling BC is the current BC */
+          && connection.state != PresentationConnectionState.terminated 
+          && this.presentationUrls.some(url => url.toString() === connection.url)
+          && presentationId === connection.id;
+      });
 
-      existingConnection = this.controlledPresentations.find((connection) => {
-                                // TODO: Its controlling browsing context is not the current browsing context
-                                connection.state != PresentationConnectionState.terminated &&
-                                this.presentationUrls.find(url => connection.url == url.toString()) !== undefined &&
-                                connection === id
-                              });
-      if(existingConnection !== undefined){
-        let newConnection = new PresentationConnection(presentationId, existingConnection.url, Role.Controller, guid()); // 2. 3., 4.
-        newConnection.state = state = PresentationConnectionState.connecting; // 5.
-        this.controlledPresentations.push(S); // 6.
-        resolve(newConnection); // 7.
-        // 8.
+      // 4.
+      if(existingConnection){           // 4.1
+        resolve(existingConnection);    // 4.2
+        if (existingConnection.state === PresentationConnectionState.connecting ||
+            existingConnection.state === PresentationConnectionState.connected) {
+          return;                       // 4.3
+        }
+
+        existingConnection.state = PresentationConnectionState.connecting; // 4.4
+        existingConnection.establish(); // 4.5
+        return;                         // 4.6
+      }
+      
+      // THIS CODE IS CURRENTLY NOT REACHABLE
+      // 5.
+      existingConnection = ua.controlledPresentations.find(connection => {
+        return true /* #TODO: Its controlling BC is not the current BC */
+          && connection.state != PresentationConnectionState.terminated 
+          && this.presentationUrls.some(url => url.toString() === connection.url)
+          && presentationId === connection.id;
+      });
+
+      // 6.
+      if (existingConnection) {                                       // 6.1
+        let newConnection = new PresentationConnection(presentationId, existingConnection.url, Role.Controller, guid());             // 6.2-4
+        newConnection.state = PresentationConnectionState.connecting; // 6.5
+        ua.controlledPresentations.push(S);                           // 6.6
+        resolve(newConnection);                                       // 6.7
         queueTask(() => {
           let event = new PresentationConnectionAvailableEvent("connectionavailable", {connection: newConnection});
           fire(event, this);
         });
-        newConnection.establish();  // 9.
+        newConnection.establish();                                    // 6.9
         return;
       }
-      reject(new NotFoundError());  // 7.
+
+      // 7.
+      reject(new NotFoundError());
     });
   }
   
@@ -609,9 +610,12 @@ class PresentationReceiver {
    * 6.6
    * create receiver inside {ReceivingContext}
    */
-  constructor() {
+  constructor(D) {
     Object.defineProperty(this, "connectionList", {
       get: () => ua.getConnectionList()
     });
+
+    ua.hostHandler(D)
+    .then(c => ua.createReceivingContext(c.display, c.url, c.presentationId, c.sessionId)); // c is the contextCreationInfo;
   }
 }

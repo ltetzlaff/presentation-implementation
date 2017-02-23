@@ -1,0 +1,16 @@
+extends layout.pug
+
+block js
+  script(src="clientscripts/controller.js")
+block content
+  section
+    iframe#video(width=480, height=270, src="https://www.youtube.com/embed/RY8aCIfERHU")
+  section
+    button#present
+    button#playpause
+  section
+    h3 Monitoring
+    select#discoveryAllowance
+      option(value=2) continous
+      option(value=1) manual
+      option(value=0) none

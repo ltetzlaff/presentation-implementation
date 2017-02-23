@@ -1,0 +1,40 @@
+block js
+  script(src="util.js")
+  script(src="clientscripts/receivingContext.js")
+  script.
+    // Example code
+    let addConnection = connection => {
+      connection.onmessage = messageEvent => {
+        if (!messageEvent || !messageEvent.data || !messageEvent.data.command) {
+          console.log("Expected messageEvent.data.command, received:", messageEvent);
+          throw new Error("wrong input")
+        }
+        //connection.send("message pingpong: " + messageEvent.data);
+        switch (messageEvent.data.command) {
+          case "play":
+            $("#video").contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
+            connection.send("played");
+            break;
+          case "pause":
+            $("#video").contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', "*");
+            connection.send("paused");
+            break;
+          case "load":
+            $("#video").setAttribute("src", messageEvent.data.url + "?enablejsapi=1")
+            connection.send("loaded");
+            break;
+        }
+      }
+    };
+
+    window.addEventListener("presentationLoaded", () => {
+      console.log(navigator.presentation.receiver);
+      navigator.presentation.receiver.connectionList.then(list => {
+        console.log(list);
+        list.connections.map(addConnection);
+        list.onconnectionavailable = evt => addConnection(evt.connection);
+      });
+    });
+  
+block content
+  iframe#video(width=480, height=270, src="")

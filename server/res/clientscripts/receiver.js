@@ -5,7 +5,7 @@ let p = window.navigator.presentation;
 p.receiver = new PresentationReceiver(D);
 
 // Example code
-var addConnection = connection => {
+/*var addConnection = connection => {
   connection.onmessage = messageEvent => {
     console.log(messageEvent);
     connection.send("message pingpong: " + messageEvent.data);
@@ -15,13 +15,10 @@ var addConnection = connection => {
 p.receiver.connectionList.then(list => {
   list.connections.map(addConnection);
   list.onconnectionavailable = evt => addConnection(evt.connection);
-});
+});*/
 
 ready(() => {
-  $("#displayDescription").innerHTML = D.displayName;
-  
-  ua.hostHandler(D)
-  .then(c => ua.createReceivingContext(c.display, c.url, c.presentationId, c.sessionId)); // c is the contextCreationInfo;
+  $("#displayDescription").innerHTML = D.displayName + "<p class='sub'>" + D.displayId + "</p>";
 });
 
 /* window.top.connection.onmessage = function (message) {

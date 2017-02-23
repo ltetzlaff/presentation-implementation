@@ -42,21 +42,7 @@ let selectDisplayUI = (displays) => {
     }
   });
 };
-
-/**
- * 0. HOST:             Display tells server that it is a potential display (R-UA) (and shows backdrop or sth)
- *                      Promise shall be resolved with the result of 3. later
- * 1. MONITOR:          Monitoring to know which displays are accessible
- * 2. SELECTDISPLAY:    pick a suitable display (frontend)
- * 3. CREATECONTEXT:    tell the display it shall create a context
- * 4. MONITORINCOMING:  how shall the display monitor incoming connections
- * 5. CONNECT:          connect to the bidirectional communication channel
- * 6. MESSAGEINCOMING:  how shall the two UAs receive their messages
- * 7. SEND:             how shall the two UAs send their messages
- * 8. CLOSE:            #TODO
- *
- */
-    
+   
 
 const handlers = {
   host            :  (D) => {
@@ -85,31 +71,26 @@ const handlers = {
   messageIncoming : (sessionId, role, cb) => {
     ajaxLong(server + "/getMail/" + sessionId + "/" + role, null, (message) => cb(message));
   },
-  send            :  (id, sessionId, role, type, data) => {
+  send            :  (sessionId, role, type, data) => {
     return ajax("post", server + "/sendMail/" + sessionId + "/" + role, {type, data})
   },
-  close: (conn, reason, message) => {
-    // #TODO
-    return Promise.reject("Not Implemented yet")
-  },
-  
-  
-  
+  close: (sessionId, role, reason, message) => {
+    return ajax("post", server + "/close/" + sessionId + "/" + role, {command: "close", reason, message});
+  }
 };
 
 class ImplementationConfig {
-  /**
+  /**   
    * @param {String}  name                      - human readable name of the implementation setup
+   * @param {Function<Promise>} host            - [R] optional, what happens if you instantiate a new receiver (tell some server maybe?)
    * @param {Function<Promise>} monitor         - how do you seek out for new displays,
    * @param {Function<Promise>} selectDisplay   - [C] select them,
    * @param {Function<Promise>} createContext   - [C] connect to them,
+   * @param {Function<Promise>} monitorIncoming - [R] what to set up to be able to handle incoming connections
    * @param {Function<Promise>} connect         - connect to them,
+   * @param {Function<Promise>} messageIncoming - what to set up to be able to handle incoming messages
    * @param {Function<Promise>} send            - send messages to them,
    * @param {Function<Promise>} close           - notify them to close connection
-   * @param {Function<Promise>} monitorIncoming - [R] what to set up to be able to handle incoming connections
-   * @param {Function<Promise>} messageIncoming - what to set up to be able to handle incoming messages
-   *
-   * @param {Function<Promise>} host            - [R] optional, what happens if you instantiate a new receiver (tell some server maybe?)
    */
   constructor(name, handlers) {
     this.name                 = name;

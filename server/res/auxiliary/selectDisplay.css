@@ -1,0 +1,60 @@
+.panel {
+    -webkit-box-shadow: var(--shadow);
+    -moz-box-shadow:    var(--shadow);
+    box-shadow:         var(--shadow);
+}
+
+.header {
+    background: rgb(25, 118, 210);
+    color: white;
+    padding: 20px;
+    -webkit-box-shadow: var(--shadowSmall);
+    -moz-box-shadow:    var(--shadowSmall);
+    box-shadow:         var(--shadowSmall);
+}
+
+button.cancel {
+    font-family: monospace;
+    position:absolute;
+    right: 20px;
+    border: none;
+    color: white;
+    background: transparent;
+}
+
+ul {
+    margin-top: 4px;
+    list-style-type: none;
+}
+
+li {
+    font-size: 1rem;
+    padding: 18px 5% 12px;
+    border-bottom: 1px solid #ccc;
+    user-select: none;
+    cursor: pointer;
+}
+
+li .sub {
+    line-height: 1.8rem;
+    font-size: .9rem;
+    color: #999;
+    pointer-events: none; /* prevent click event */
+}
+
+li:hover {
+    background: #f9f9f9;
+}
+
+li:before {
+    padding: 0 12px 0 0;
+    content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='16' height='16'><path d='M0 2v20h32v-20h-32zM30 20h-28v-16h28v16zM21 24h-10l-1 4-2 2h16l-2-2z'></path></svg>");
+}
+
+/*.selectDisplay{
+    position: fixed;
+    z-index: 10;
+    right: 0%;
+    height: 350px;   
+    width: 300;
+}*/

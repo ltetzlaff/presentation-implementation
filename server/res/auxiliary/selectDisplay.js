@@ -1,3 +1,16 @@
+let debug = false;
+if (debug) {
+  ready(() => {
+    let displays = [
+      {displayName: "Display Name 1", displayId: guid()},
+      {displayName: "Namelicious", displayId: guid()},
+      {displayName: "John Doesplay", displayId: guid()}
+    ]
+    populateDisplayList(displays)
+  })
+}
+//
+
 let parent = null;
 let origin = null;
 window.addEventListener("message", e => {
@@ -23,12 +36,13 @@ function populateDisplayList(displays) {
   displays.forEach(display => {
     // One Line per Display
     let li = document.createElement("li");
-    li.innerHTML = display.displayName + " (" + display.displayId + ")";
+    li.innerHTML = display.displayName + "<p class='sub'>" + display.displayId + "</p>";
     li.setAttribute("displayId", display.displayId);
     li.className = "list-group-item";
     // Attach Click Listener
     li.addEventListener("click", (e) => {
-      if (parent !== null) {
+      e.stopPropagation();
+      if (parent) {
         let clicked = e.target.getAttribute("displayId");
         parent.postMessage(clicked, origin);
       }
