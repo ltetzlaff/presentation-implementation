@@ -14,6 +14,22 @@ body {
     --shadowSmall: 0 2px 2px 1px #999;
 }
 
+section {
+    margin: 0 auto;
+    text-align: center;
+    padding: 10px;
+    display: block;    
+}
+
+button {
+    background: none;
+    margin: 0 15px;
+    border: 1px solid #333;
+    width: 32px;
+    height: 32px;
+}
+
+
 /* RECEIVER */
 #displayDescription {
     z-index: -1;
@@ -53,13 +69,6 @@ body {
 
 
 /* CONTROLLER */
-#present, #playpause {
-    background: none;
-    border: 1px solid #333;
-    width: 32px;
-    height: 32px;
-}
-
 #present:before {
     content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='16' height='16'><path d='M0 2v20h32v-20h-32zM30 20h-28v-16h28v16zM21 24h-10l-1 4-2 2h16l-2-2z'></path></svg>");
 }
@@ -68,8 +77,27 @@ body {
     content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='16' height='16'><path d='M32 16 L0 0 L0 32 Z'></path></svg>");
 }
 
+#playpause.playing:before {
+    content: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='16' height='16'><path d='M0 0 L0 32 M32 0 L32 32 Z'></path></svg>");
+}
 
+#present {
+    border-color: red;
+    background: transparent;
+}
+#present.available {
+    border-color: green;
+}
 
+#present.connected {
+    background: green;
+}
+#present.closed {
+    background: transparent;
+}
+#present.terminated {
+    background: red;
+}
 
 
 /*

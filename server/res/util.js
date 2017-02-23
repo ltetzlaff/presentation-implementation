@@ -153,7 +153,7 @@ function addEventListeners(eventTarget, eventNames) {
     eventTarget.addEventListener(name, (e) => {
       let handler = eventTarget["on" + name];
       if (handler && typeof handler === "function") {
-        handler(e);
+        handler.call(eventTarget, e);
       } else {
         console.warn("No handler assigned for " + name + " on Target:", eventTarget);
       }

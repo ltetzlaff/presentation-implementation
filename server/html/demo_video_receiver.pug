@@ -2,15 +2,15 @@ block js
   script(src="util.js")
   script(src="clientscripts/receivingContext.js")
   script.
-    /*setInterval(() => {
-      console.log(navigator.presentation);
-    }, 5000);*/
     // Example code
-    var addConnection = connection => {
+    let addConnection = connection => {
       connection.onmessage = messageEvent => {
-        console.log(messageEvent);
+        if (!messageEvent || !messageEvent.data || !messageEvent.data.command) {
+          console.log("Expected messageEvent.data.command, received:", messageEvent);
+          throw new Error("wrong input")
+        }
         //connection.send("message pingpong: " + messageEvent.data);
-        switch (messageEvent.data) {
+        switch (messageEvent.data.command) {
           case "play":
             $("#video").contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
             connection.send("played");
@@ -18,6 +18,10 @@ block js
           case "pause":
             $("#video").contentWindow.postMessage('{"event":"command","func":"pauseVideo","args":""}', "*");
             connection.send("paused");
+            break;
+          case "load":
+            $("#video").setAttribute("src", messageEvent.data.url + "?enablejsapi=1")
+            connection.send("loaded");
             break;
         }
       }
@@ -31,8 +35,6 @@ block js
         list.onconnectionavailable = evt => addConnection(evt.connection);
       });
     });
-    
-
   
 block content
-  iframe#video(width=480, height=270, src="https://www.youtube.com/embed/RY8aCIfERHU?enablejsapi=1")
+  iframe#video(width=480, height=270, src="")

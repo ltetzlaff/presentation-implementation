@@ -146,39 +146,27 @@ class PresentationConnection {
    * 6.5.1
    * connect
    * @param {PresentationConnection} this
-   * @return {Promise<boolean>}
+   * @return {Promise}
    */
   establish() {
     // 1.
     if (this.state !== PresentationConnectionState.connecting) {
-      console.warn("Establishing but not connecting, aborting..");
-      return;
+      return Promise.reject("Establishing but not connecting, aborting..");
     }
     
     // 2.
     // Request connection of presentationConnection to the receiving browsing context. The presentation identifier of presentationConnection must be sent with this request.
-    ua.closing = false;
+    this.closing = false;
     return ua.connectHandler(this.id, this.sessionId, this.role)
-      .catch(() => {
-        this.close(PresentationConnectionClosedReasons.error); // 4.
-        return false;
-      })
-      .then((reference) => {
-        queueTask(() => {
-          this.state = PresentationConnectionState.connected;   // 3.
-          ua.messageIncomingHandler(this.sessionId, this.role,
-            (message) => {
-              console.log(message);
-              if (message.command) {
-                
-              } else {
-                this.receive(PresentationMessageType.text, message)
-              }              
-            });
-          fire(new Event("connect"), this);
-        });
-        return true;
+    .catch(() => this.close(PresentationConnectionClosedReasons.error)) // 4.
+    .then(() => {
+      queueTask(() => {
+        this.state = PresentationConnectionState.connected;   // 3.
+        ua.messageIncomingHandler(this.sessionId, this.role,
+          message => this.receive(PresentationMessageType.text, message));
+        fire(new Event("connect"), this);
       });
+    });
   }
   
   /**
@@ -194,7 +182,7 @@ class PresentationConnection {
     }
     
     // 2.
-    if (this.state == PresentationConnectionState.closed) {
+    if (this.closing) {
       return;
     }
     
@@ -225,6 +213,7 @@ class PresentationConnection {
    * @param {string|binary} messageData
    */
   receive(messageType, messageData) {
+    console.log("received message: ", messageData);
     if (this.state !== PresentationConnectionState.connected) {
       return; // 1.
     }
@@ -380,7 +369,6 @@ class PresentationRequest {
    * @return {Promise<PresentationConnection>}
    */
   start() {
-    
     if (!Browser.allowedToShowPopup()) {
       return Promise.reject(new InvalidAccessError()); // 1.
     }
@@ -455,7 +443,8 @@ class PresentationRequest {
       fire(event, this);
     })
 
-    // 10.+ 12.
+    // 10.+ 12. 
+    // "tell U to create receiving browsing context" -> fire and forget
     ua.createContextHandler(D, pUrl, I, S.sessionId)
     .catch(() => S.close(PresentationConnectionClosedReasons.error, "Creation of receiving context failed.")) /* 11. */
     .then (() => S.establish()); /* 13. */
