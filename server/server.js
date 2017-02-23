@@ -9,6 +9,10 @@ const cookieParser = require('cookie-parser');
 const bodyParser = require('body-parser');
 const EventEmitter = require("events").EventEmitter;
 
+
+//Socket.IO
+var io = require('socket.io')(http);
+
 // ---   SETUP    ---
 e.set('port', process.env.PORT || 8080); //http #yolo
 
@@ -56,16 +60,27 @@ class Controller extends Entity {
 }
 
 class Display extends Entity {
-  constructor(displayName, displayId) {
+  constructor(displayName, displayId, connectionObject = undefined) {
     super();
     this.displayName = displayName;
     this.displayId = displayId;
     this.presentationId = null;
     // this assumes that there's only one presentation per display because this will be the usual case
 
+    // Socket.io
+    if (typeof connectionObject == 'Socket'){
+      this.conObj = connectionObject; 
+    }
+
+     
+
     // Keep track of controlling sessions
     makeHiddenProp(this, "sessions", []); // [{sessionId: GUID, controllerName: ""}]
     makeHiddenProp(this, "freshSessions", []);
+  }
+
+  set conObj(connection) {
+    this.conObj = connection;
   }
 
   removeSession(sessionId) {
@@ -239,6 +254,46 @@ router.post("/close/:sessionId/:role", (req, res) => {
 });
 
 e.use('/', router);
+
+
+// --- SOCKET.IO ---
+// Everything for the Monitor/Receiver
+let monitorIO = io.of('/monitor');
+
+  
+// ON connection is going to be equivaletn to /host
+monitorIO.on('connection', function(socket){
+    console.log('a monior connected');
+    let b = socket.handshake.query;
+    let display = displays.find(d => d.displayId === b.displayId);
+    if (display) {
+      display.displayName = b.displayName; // name has changed apparently
+      display.conObj = socket;
+    } else {
+      displays.push(new Display(b.displayName, b.displayId, socket));
+    }
+    /*
+    controllerIO.emit('chat message', monitors.map((el) => {
+            return el.getJSONInfo;
+        }));
+    */
+    socket.on('disconnect', function(){
+        //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
+        console.log('monitor disconnected');
+    });
+
+    // Here goes everything display communication related
+    socket.on('listener', function(msg){
+      // TODO
+        console.log('message: ' + msg.msg);
+        console.log('id: ' + socket.id);
+    });
+});
+// Everything for the Controller
+let controllerIO = io.of('/controller');
+// Everything for Socket.io
+
+// --- End Socket.io ---
 
 // ---   ERRORS   ---
 // catch 404 and forward to error handler
