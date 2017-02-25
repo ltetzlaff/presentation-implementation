@@ -267,10 +267,10 @@ e.use('/', router);
 
 // --- SOCKET.IO ---
 // Everything for the Receiver
-let receiverIO = io.of('/host');
+let displayIO = io.of('/host');
   
 // ON connection is going to be equivaletn to /host
-receiverIO.on('connection', socket => {
+displayIO.on('connection', socket => {
     console.log('a display connected');
     let b = socket.handshake.query;
     addDisplay(b, socket);
