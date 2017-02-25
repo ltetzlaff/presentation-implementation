@@ -13,8 +13,11 @@ html
     // Browser-Level Interface to the Website-Developer
     script(src="presentationUserAgent.js")
 
+    // For Socket IO
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js")
+
     // Website-Developer's Implementation accessing the Presentation API
-    script(src="implementation.js")
+    script(src="implementation.socketio.js")
 
     // Site-specific scripts
     block js

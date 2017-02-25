@@ -39,7 +39,11 @@ function makeHiddenProp(obj, propName, value) {
 }
 
 class Entity {
-  constructor() {
+  constructor(connectionObject = undefined) {
+    // Socket.io
+    if (connectionObject !== undefined && connectionObject.constructor.name == 'Socket'){
+      makeHiddenProp(this, "conObj",connectionObject); 
+    }
     makeHiddenProp(this, "mailBox", new EventEmitter());
   }
 
@@ -47,8 +51,14 @@ class Entity {
     return this.mailBox.removeAllListeners(type).once(type, cb);
   }
   send(type, msg) {
-    this.mailBox.emit(type, msg);
-  }
+    if(this.mailBox.listenerCount(type) > 0){
+      this.mailBox.emit(type, msg);
+    }
+    if(this.conObj !== undefined){
+      this.conObj.emit(type, msg);
+    }
+      
+  }  
 }
 
 class Controller extends Entity {
@@ -61,26 +71,16 @@ class Controller extends Entity {
 
 class Display extends Entity {
   constructor(displayName, displayId, connectionObject = undefined) {
-    super();
+    super(connectionObject);
     this.displayName = displayName;
     this.displayId = displayId;
     this.presentationId = null;
     // this assumes that there's only one presentation per display because this will be the usual case
 
-    // Socket.io
-    if (typeof connectionObject == 'Socket'){
-      this.conObj = connectionObject; 
-    }
-
-     
-
+    
     // Keep track of controlling sessions
     makeHiddenProp(this, "sessions", []); // [{sessionId: GUID, controllerName: ""}]
     makeHiddenProp(this, "freshSessions", []);
-  }
-
-  set conObj(connection) {
-    this.conObj = connection;
   }
 
   removeSession(sessionId) {
@@ -151,7 +151,13 @@ router.get("/didSomebodyPrepareMe/:displayId", (req, res) => {
 });
 
 router.get("/monitor", (req, res) => {
-  res.send(displays);
+  res.send(displays.map(el => {
+    return {
+      'displayId': el.displayId,
+      'displayName': el.displayName
+        }
+    }
+    ));
 });
 
 /**
@@ -277,6 +283,13 @@ monitorIO.on('connection', function(socket){
             return el.getJSONInfo;
         }));
     */
+
+    socket.on('test', function(){
+        //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
+        console.log('just for test');
+        socket.emit("prepared", "test")
+    });
+
     socket.on('disconnect', function(){
         //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
         console.log('monitor disconnected');
@@ -342,6 +355,7 @@ const server = http.createServer(e);
 server.listen(e.get('port'), () => {
 	console.log("http server up on port "+ e.get('port'));
 });
+io.listen(server);
 
 // ---   SOCKET   ---
 /*const io = require('socket.io').listen(server); //attached to webserver
