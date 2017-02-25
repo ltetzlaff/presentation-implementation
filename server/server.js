@@ -39,7 +39,7 @@ function makeHiddenProp(obj, propName, value) {
 }
 
 class Entity {
-  constructor(connectionObject = undefined) {
+  constructor(connectionObject) {
     // Socket.io
     if (connectionObject !== undefined && connectionObject.constructor.name == 'Socket'){
       makeHiddenProp(this, "conObj",connectionObject); 
@@ -70,7 +70,7 @@ class Controller extends Entity {
 }
 
 class Display extends Entity {
-  constructor(displayName, displayId, connectionObject = undefined) {
+  constructor(displayName, displayId, connectionObject) {
     super(connectionObject);
     this.displayName = displayName;
     this.displayId = displayId;
@@ -356,18 +356,5 @@ server.listen(e.get('port'), () => {
 	console.log("http server up on port "+ e.get('port'));
 });
 io.listen(server);
-
-// ---   SOCKET   ---
-/*const io = require('socket.io').listen(server); //attached to webserver
-
-io.sockets.on('connection', function(socket) {
-	console.log("connected");
-  
-  // disconnect
-  socket.on('disconnect', function(socket) {
-    console.log("disconnected");
-  });
-});*/
-
 
 module.exports = e;
