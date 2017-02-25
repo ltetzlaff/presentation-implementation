@@ -41,8 +41,8 @@ function makeHiddenProp(obj, propName, value) {
 class Entity {
   constructor(connectionObject) {
     // Socket.io
-    if (connectionObject !== undefined && connectionObject.constructor.name == 'Socket'){
-      makeHiddenProp(this, "conObj",connectionObject); 
+    if (connectionObject && connectionObject.constructor.name === "Socket"){
+      makeHiddenProp(this, "conObj", connectionObject); 
     }
     makeHiddenProp(this, "mailBox", new EventEmitter());
   }
@@ -76,7 +76,6 @@ class Display extends Entity {
     this.displayId = displayId;
     this.presentationId = null;
     // this assumes that there's only one presentation per display because this will be the usual case
-
     
     // Keep track of controlling sessions
     makeHiddenProp(this, "sessions", []); // [{sessionId: GUID, controllerName: ""}]
@@ -98,6 +97,15 @@ class Display extends Entity {
   getSession(sessionId) {
     return this.sessions.find(s => s.sessionId === sessionId) ||
       this.freshSessions.find(s => s.sessionId === sessionId);
+  }
+}
+
+function addDisplay(requestBody, socket) {
+  let display = displays.find(d => d.displayId === requestBody.displayId);
+  if (display) {
+    display.displayName = requestBody.displayName; // name has changed apparently
+  } else {
+    displays.push(new Display(requestBody.displayName, requestBody.displayId, socket));
   }
 }
 
@@ -137,12 +145,7 @@ router.param("role", (req, res, next, role) => {
  */
 router.post("/host", (req, res) => {
   let b = req.body;
-  let display = displays.find(d => d.displayId === b.displayId);
-  if (display) {
-    display.displayName = b.displayName; // name has changed apparently
-  } else {
-    displays.push(new Display(b.displayName, b.displayId));
-  }
+  addDisplay(b);
   res.status(200).end()
 });
 
@@ -263,40 +266,33 @@ e.use('/', router);
 
 
 // --- SOCKET.IO ---
-// Everything for the Monitor/Receiver
-let monitorIO = io.of('/monitor');
-
+// Everything for the Receiver
+let receiverIO = io.of('/host');
   
 // ON connection is going to be equivaletn to /host
-monitorIO.on('connection', function(socket){
-    console.log('a monior connected');
+receiverIO.on('connection', socket => {
+    console.log('a display connected');
     let b = socket.handshake.query;
-    let display = displays.find(d => d.displayId === b.displayId);
-    if (display) {
-      display.displayName = b.displayName; // name has changed apparently
-      display.conObj = socket;
-    } else {
-      displays.push(new Display(b.displayName, b.displayId, socket));
-    }
+    addDisplay(b, socket);
     /*
     controllerIO.emit('chat message', monitors.map((el) => {
             return el.getJSONInfo;
         }));
     */
 
-    socket.on('test', function(){
+    socket.on('test', () => {
         //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
         console.log('just for test');
         socket.emit("prepared", "test")
     });
 
-    socket.on('disconnect', function(){
+    socket.on('disconnect', () => {
         //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
         console.log('monitor disconnected');
     });
 
     // Here goes everything display communication related
-    socket.on('prepareMyRoom', function(msg){
+    socket.on('prepareMyRoom', msg => {
       let b = req.body;
       req.display.presentationId = b.presentationId;
       req.display.send("prepared", {

@@ -36,48 +36,6 @@ const handlers = {
   }
 };
 
-class ImplementationConfig {
-  /**   
-   * @param {String}  name                      - human readable name of the implementation setup
-   * @param {Function<Promise>} host            - [R] optional, what happens if you instantiate a new receiver (tell some server maybe?)
-   * @param {Function<Promise>} monitor         - how do you seek out for new displays,
-   * @param {Function<Promise>} selectDisplay   - [C] select them,
-   * @param {Function<Promise>} createContext   - [C] connect to them,
-   * @param {Function<Promise>} monitorIncoming - [R] what to set up to be able to handle incoming connections
-   * @param {Function<Promise>} connect         - connect to them,
-   * @param {Function<Promise>} messageIncoming - what to set up to be able to handle incoming messages
-   * @param {Function<Promise>} send            - send messages to them,
-   * @param {Function<Promise>} close           - notify them to close connection
-   */
-  constructor(name, handlers) {
-    this.name                 = name;
-    ImplementationConfig.Handlers().forEach(h => {
-      let handler = h + "Handler";
-      this[handler] = handlers[h];
-    });
-  }
-
-  static Handlers() {
-    return ["monitor", "selectDisplay", "createContext", "connect", "send", "close", "host", "monitorIncoming", "messageIncoming"];
-  }
-
-  /**
-   * Configure API
-   * "Implementation-specific" part in spec
-   * @param {ImplementationConfig} this
-   * @param {Object} obj
-   */
-  configure(obj) {
-    console.log("loaded Implementation: " + this.name);
-    ImplementationConfig.Handlers().forEach(h => {
-      let handler = h + "Handler";
-      obj[handler] = this[handler];
-    });
-
-    obj.possible = true;
-    obj.refreshContinousMonitoring();
-  }
-}
 let config = new ImplementationConfig("ajax-based Example", handlers);
 
 // Global scope of the user agent
