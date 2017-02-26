@@ -1,93 +1,42 @@
-# AWT Presentation API
-
-## Questions
-
-### Which Version is targeted?
-
-Draft
-
-### Should we do testing?
-
-There is another topic on testing, so *nope*
+# Abstract
 
 
 
-## Topics
 
-### Controller
+# Introduction
 
-HTML+JS
-`any webcontent` + cast button which initiates discovery of devices
+The scope of this document is set to report details about the implementation of the World Wide Web Consortium's Presentation API. The specification was published by the Second Screen Presentation Working Group and submitted as a Candidate Recommendation in July 2016 with the current Editor's Draft version being dated to February, 16 2017.
 
-### Receiver
+Paraphrasized, the API aims to provide a generalized way of accessing and connecting display ressources using web technology thus providing means to present content from a given website to a display and gain restricted remote access to their browsing context by messaging. Effectively this system relies on two dedicated roles, the Controller and the Receiver, obtained by the respective User Agents of on the one hand the initiating web page and on the other hand the display, whereas these may also be identical thus allowing a 1-User-Agent situation. This document and the implementation assume the  2-User-Agent case since 1-UA is to be most prominently used in conjunction with a native way of transmitting the rendered presentation for example by encoding to png and sending it to an external display entity.
 
-HTML+JS
+# Architecture
 
-### Technologies we could make an example on
-- any device accessing a certain website with certain parameters
-- chrome extension that acts as another display
-- chromecast-a-like etc
+To facilitate using the Presentation API in terms of hosting a presentation, connecting to a presentation and using the established connection the interface to the user or rather the application developer is kept simple and straight-forward as to be seen in \ref{UsageExample}. Generally speaking there are three distinct entities involved in the aforementioned processes, the first being the Receiving User Agent. In case of a browser vendor's implementation of the API this is most likely to be integrated into the b5r6rowser natively or as a plugin, whereas in this implementation it's a polyfill housed in a loaded html-document, followingly referred to as the *Receiver*.
 
-Mutual for all of those:
-- no common local storage
-- no common session
-- no common origin (CORS)
+The counterpart is the Controlling Browser Agent which acts upon input from the controlling browsing context. Due to the closely coupled relation in the internal procedures of the specification those two entities have been combined into the *Controller* which can be any regular web page enriched by the same aforementioned PresentationAPI-polyfill and scripts containing the desired controller logic of the application developer.
 
-### Use Cases we might incorporate
-- Presentation (Slides, maybe even questions from the audience via live image or something)
-- Video sharing (home theater example or sth)
-- Chat room
-- Some cool game
-- Some fancy WebGL
+As soon as the Controller knows about the possibility to present on a remote display (~~ Presentation Availability) it may start a Presentation Connection and instruct the Receiver to create a receiving browsing context, here referred to as the *Presentation*, which is the final third component. This is another document written by the application developer that needn't be much different from the "regular" controlling page since it can identify if it is loaded as a Presentation and act accordingly.
 
-### Backend Options
+*table with script names per role*
 
-#### Node.JS as mitm-like service on $serverUrl$
+Since the specificiation relies heavily on individual vendor-specific mechanisms this implementation also provides a configuration interface for the User Agent level that requires a set of handlers. To prove this concept two distinct approaches were realized, as seen in \ref{Demo}, one relying purely on ajax and long-polling thus offering maximum compatibility and the second one on WebSockets for a more standard bidirectional low-latency communication.
 
-- receiver registering on server as idle by sending `xhr($serverUrl$/host&room=123)` at some point in time
-- controller: `xhr($serverUrl$/join&room=123)`
-- server returns reference to selected room thus establishing handshake
-- Data Transmission?
-  - socket.io, maybe WebSockets/WebRTC _(actually not)_
+\ref{Shortcomings}
 
-#### P2P $serverUrl$ is $receiverUrl$
+Each user agent
 
-- receiver listening
-- controller gets $serverUrl$ by local discovery
+## Configuration
 
+# Alternative Approaches
 
-### Discovery
+*multiple stacked contexts*
 
-has to be encapsulated from `any webcontent` because they shall not be allowed to know about the device options the controller has,
-thus: evaluate encapsulation method to occult list of cast devices from api users
+# Shortcomings
 
-#### keep it in the browser context
+*1-11 are not met in 'creating a receiving browsing context'*
 
-##### use some browser magic
+# Test Compliance
 
-- stuff that works for file api etc
-- filechooser doesnt return absolute urls *example*
-- _but what if we need it now and not in the next 20 versions of Chrome someday?_
+# Usage Example
 
-##### use light js magic
-
-- closures
-  - *example*
-  - _your stuff might get overridden so meh_
-- obfuscation
-  - make non enumerable properties https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperty
-  - random indices in objects *example*
-  - _yeah .._
-- es6 symbols + custom wrapper class in between (== famiums `multiscreen.js`)
-  - es6 has true private members (symbols)
-  - add some custom class e.g. `DeviceChooser` which does the availability checking, keeps it private and returns some anonymized reference to the chosen device
-  - ensuring that this is done correctly could be done similarly to file api classes (only allow calls to something being instanceof `DeviceChooser`)
-  - user (dev) should be able to call one function in the end
-
-#### move to another context
-- iframe
-  - https://www.html5rocks.com/en/tutorials/security/sandboxed-iframes/
-  - http://webagility.com/posts/web-components-vs-iframes
-- shadow dom / html imports
-  - http://stackoverflow.com/a/28518932
-- chrome extension
+# Demo
