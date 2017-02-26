@@ -2,6 +2,21 @@ let server = "";
 let CLIENT_NAME = "John Doe";
 let socket = undefined;
 
+function isSocketInitialized(role){
+  return new Promise((resolve, reject) => {
+    if(socket === undefined){
+      socket = io(role);
+        socket.on('connect', function(){          
+            resolve();          
+        });
+    }else if(socket.connected == true){
+      resove();
+    }else{
+      reject(new Error("Socket not connected or undefined"));
+    }
+  });
+}
+
 const handlers = {
   host            :  (D) => {
     // This resolves to the contextCreationInfo provided by the controller via createContextHandler below
@@ -20,7 +35,15 @@ const handlers = {
     });
   
   },
-  monitor         :  () => ajax("get", server + "/monitor"),
+  monitor         :  () => {
+    return new Promise((resolve, reject) =>{
+      isSocketInitialized("/controller").then(
+      socket.emit("monitor","", (res) => { 
+        resolve(res);
+      }));   
+    })
+    }    
+  ,
   selectDisplay   :  (displays) => selectDisplayUI(displays),
   createContext   :  (display, url, presentationId, sessionId) => {
     return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId, sessionId})

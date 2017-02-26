@@ -310,6 +310,26 @@ displayIO.on('connection', socket => {
 let controllerIO = io.of('/controller');
 // Everything for Socket.io
 
+controllerIO.on('connection', socket => {
+    console.log('a potential controller connected');
+    //let b = socket.handshake.query;
+    
+    /*
+    controllerIO.emit('chat message', monitors.map((el) => {
+            return el.getJSONInfo;
+        }));
+    */
+
+    socket.on('monitor', (data, cb) =>{
+      cb(displays.map(el => {
+        return {
+          'displayId': el.displayId,
+          'displayName': el.displayName
+            }
+        }));    
+    });
+});
+
 // --- End Socket.io ---
 
 // ---   ERRORS   ---
