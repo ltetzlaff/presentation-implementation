@@ -10,7 +10,7 @@ function isSocketInitialized(role){
             resolve();          
         });
     }else if(socket.connected == true){
-      resove();
+      resolve();
     }else{
       reject(new Error("Socket not connected or undefined"));
     }
@@ -29,18 +29,18 @@ const handlers = {
             console.log('prepared');
             resolve(data);       
           });   
-        });
-        
+        });        
       }
     });
   
   },
   monitor         :  () => {
     return new Promise((resolve, reject) =>{
-      isSocketInitialized("/controller").then(
-      socket.emit("monitor","", (res) => { 
-        resolve(res);
-      }));   
+      isSocketInitialized("/controller").then(() => {
+        socket.emit("monitor","", (res) => { 
+          resolve(res);
+        });
+      });   
     })
     }    
   ,
@@ -49,12 +49,24 @@ const handlers = {
     return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId, sessionId})
   },
   monitorIncoming : (id, url, cb) => {
-    ajaxLong(server + "/didSomebodyJoinMe/" + id, null,
+    /*ajaxLong(server + "/didSomebodyJoinMe/" + id, null,
       (newCtrls) => newCtrls && newCtrls.length && newCtrls.forEach(c => cb(c.presentationId))
-    );
+    );*/    
+    socket.on("didSomebodyJoinMe",(c) => {      
+        cb(c.presentationId);      
+    })
   },
   connect         :  (id, sessionId, role) => {
-    return ajax("post", server + "/join/" + id + "/" + role, {sessionId, controllerName: CLIENT_NAME})
+    //return ajax("post", server + "/join/" + id + "/" + role, {sessionId, controllerName: CLIENT_NAME});
+    
+    return new Promise((resolve, reject) =>{
+      isSocketInitialized("/controller").then(() => {
+        socket.emit("joinPresentation",{sessionId: sessionId, presentationId: id, controllerName: CLIENT_NAME}, (res) => { 
+          resolve(res);
+        })
+      });   
+    })
+    
   },
   messageIncoming : (sessionId, role, cb) => {
     ajaxLong(server + "/getMail/" + sessionId + "/" + role, null, (message) => cb(message));

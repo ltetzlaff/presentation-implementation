@@ -163,7 +163,9 @@ class PresentationConnection {
       queueTask(() => {
         this.state = PresentationConnectionState.connected;   // 3.
         ua.messageIncomingHandler(this.sessionId, this.role,
-          message => this.receive(PresentationMessageType.text, message));
+          message => {
+            this.receive(PresentationMessageType.text, message)
+          });
         fire(new Event("connect"), this);
       });
     });

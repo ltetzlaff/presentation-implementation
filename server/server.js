@@ -175,7 +175,7 @@ router.post("/prepareMyRoom/:displayId", (req, res) => {
       presentationId: b.presentationId,
       sessionId: b.sessionId
     });
-  res.status(200).end();
+  setTimeout(() => res.status(200).end(), 1000);
 });
 
 router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
@@ -327,6 +327,36 @@ controllerIO.on('connection', socket => {
           'displayName': el.displayName
             }
         }));    
+    });
+
+    // use joinPresentation, because join is already beeing used by socket.io
+    socket.on('joinPresentation', (data, cb) =>{
+      let display = displays.find(d => d.presentationId === data.presentationId);
+      if(display){
+        let newSession = new Controller(data.sessionId, data.controllerName);
+        display.sessions.push(newSession);
+        display.send("didSomebodyJoinMe", {
+          presentationId: data.presentationId, controllerName: data.controllerName,
+        });
+      }
+      // Little Hack so it is actually a TODO
+      setTimeout(() => cb(true), 1000);
+      
+      
+
+
+      /*
+      router.post("/join/:presentationId/:role", (req, res) => {
+  let b = req.body;
+  if (req.display && req.role === Role.Controller) {
+    let newSession = new Controller(b.sessionId, b.controllerName);
+    req.display.freshSessions.push(newSession);
+    req.display.send("joined",
+      {presentationId: req.params.presentationId, controllerName: b.controllerName});
+  }
+  res.status(200).end();
+});
+      */ 
     });
 });
 
