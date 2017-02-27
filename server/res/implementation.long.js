@@ -1,4 +1,4 @@
-let server = "";
+let server = "http://localhost:8080";
 let CLIENT_NAME = "John Doe";
 
 const handlers = {
