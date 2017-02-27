@@ -348,8 +348,8 @@ class PresentationRequest {
     if (!urls) {
       throw new TypeError();
     }
-
-    if (urls.length <= 1) {
+    
+    if (urls.length < 1) {
       throw domEx("NotSupportedError"); // 1.
     }
     
