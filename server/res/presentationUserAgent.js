@@ -137,9 +137,6 @@ class PresentationUserAgent extends Presentation {
       this.monitorIncomingHandler(presentationId, presentationUrl, (I) => {
         this.handleClient(I, presentationId, presentationUrl, sessionId);
       });
-      
-      // Connect initiating controlling context
-      //this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
     });
   }
 
