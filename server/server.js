@@ -95,24 +95,17 @@ class Display extends Entity {
     
     // Keep track of controlling sessions
     makeHiddenProp(this, "sessions", []); // [{sessionId: GUID, controllerName: ""}]
-    makeHiddenProp(this, "freshSessions", []);
   }
 
   removeSession(sessionId) {
-    let i = -1;
-    i = this.sessions.indexOf(s => s.sessionId === sessionId)
+    let i = this.sessions.indexOf(s => s.sessionId === sessionId)
     if (i >= 0) {
       this.sessions.splice(i, 1);
-    }
-    i = this.freshSessions.indexOf(s => s.sessionId === sessionId);
-    if (i >= 0) {
-      this.freshSessions.splice(i, 1);
     }
   }
 
   getSession(sessionId) {
-    return this.sessions.find(s => s.sessionId === sessionId) ||
-      this.freshSessions.find(s => s.sessionId === sessionId);
+    return this.sessions.find(s => s.sessionId === sessionId);
   }
 }
 
@@ -198,11 +191,8 @@ router.post("/prepareMyRoom/:displayId", (req, res) => {
 router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
   let d = req.display;
   if (d) {
-    d.drain("joined", () => {
-      let returnedList = [].concat(d.freshSessions);
-      d.sessions = d.sessions.concat(d.freshSessions);
-      d.freshSessions = [];
-      res.send(returnedList);
+    d.drain("joined", (joinedCtrl) => {
+      res.send(joinedCtrl);
     });
   } else {
     res.status(401).end();
@@ -215,8 +205,7 @@ router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
 router.post("/join/:presentationId/:role", (req, res) => {
   let b = req.body;
   if (req.display && req.role === Role.Controller) {
-    let newSession = new Controller(b.sessionId, b.controllerName);
-    req.display.freshSessions.push(newSession);
+    req.display.sessions.push(new Controller(b.sessionId, b.controllerName));
     req.display.send("joined",
       {presentationId: req.params.presentationId, controllerName: b.controllerName});
   }

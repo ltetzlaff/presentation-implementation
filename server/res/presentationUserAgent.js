@@ -139,7 +139,7 @@ class PresentationUserAgent extends Presentation {
       });
       
       // Connect initiating controlling context
-      this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
+      //this.handleClient(presentationId, presentationId, presentationUrl, sessionId);
     });
   }
 

@@ -18,13 +18,7 @@ const handlers = {
     return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId, sessionId})
   },
   monitorIncoming : (id, url, cb) => {
-    ajaxLong(server + "/didSomebodyJoinMe/" + id, null,
-      (newCtrls) => newCtrls && newCtrls.length && newCtrls.forEach(c => {
-        cb(c.presentationId)
-        console.log(c);
-        
-      })
-    );
+    ajaxLong(server + "/didSomebodyJoinMe/" + id, null, c => cb(c.presentationId));
   },
   connect         :  (id, sessionId, role) => {
     return ajax("post", server + "/join/" + id + "/" + role, {sessionId, controllerName: CLIENT_NAME})
