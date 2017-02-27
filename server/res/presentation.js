@@ -180,7 +180,7 @@ class PresentationConnection {
   send(messageOrData) {
     console.log("send:", messageOrData);
     if (this.state !== PresentationConnectionState.connected) {
-      throw domEx("INVALID_STATE_ERROR"); // 1.
+      throw domEx("InvalidStateError"); // 1.
     }
     
     // 2.
@@ -346,7 +346,11 @@ class PresentationRequest {
     addEventListeners(this, "connectionavailable");
 
     if (!urls) {
-      throw domEx("NOT_SUPPORTED_ERROR"); // 1.
+      throw new TypeError();
+    }
+
+    if (urls.length <= 1) {
+      throw domEx("NotSupportedError"); // 1.
     }
     
     if (!(urls instanceof Array)) {
@@ -356,8 +360,15 @@ class PresentationRequest {
     this.presentationUrls = []; //3.
     let baseUrl = getBaseUrl();
     urls.forEach(url => {
+      let addUrl;
+      try {
+        addUrl = new URL(url, baseUrl);
+      } catch(e) {
+        throw domEx("SyntaxError"); // 4.
+        // according to MSN this should be thrown by URL-constructor but instead i get TypeError
+      }
+      this.presentationUrls.push(addUrl); 
       // url resolving like in nodejs (https://nodejs.org/api/url.html) is experimental: https://developer.mozilla.org/en-US/docs/Web/API/URL/URL
-      this.presentationUrls.push(new URL(url, baseUrl)); // 4., throws SyntaxError correctly
     });
     
     this.presentationAvailabilityPromise = null;
@@ -371,7 +382,7 @@ class PresentationRequest {
    * @return {Promise<PresentationConnection>}
    */
   start() {
-    if (!Browser.allowedToShowPopup()) {
+    if (!Browser.allowedToShowPopup(event)) {
       return Promise.reject(new InvalidAccessError()); // 1.
     }
     
@@ -386,10 +397,12 @@ class PresentationRequest {
         this.monitor();
       }
       
-      ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
-      .then(D => {
-        // 11. - 12.
-        this.startPresentationConnection(D, resolve);
+      this.getAvailability().then(() => {
+        ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
+        .then(D => {
+          // 11. - 12.
+          this.startPresentationConnection(D, resolve);
+        });
       });
     });
     return P; // 5.
@@ -525,7 +538,7 @@ class PresentationRequest {
       if (ua.allowed < DiscoveryAllowance.continous) { // 4.
         console.warn("Not possible to monitor available presentation displays.");
         this.getAvailabilityPending = null;
-        return reject(domEx("NOT_SUPPORTED_ERROR"));
+        return reject(domEx("NotSupportedError"));
       }
       
       if (this.presentationDisplayAvailability !== null) {

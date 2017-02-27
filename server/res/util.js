@@ -16,8 +16,83 @@ function $$(selector, el) {
  // return Array.prototype.slice.call(el.querySelectorAll(selector));
 }
 
-function getBaseUrl() {
-  return new RegExp(/^.*\//).exec(window.location.href)[0];
+ /**
+   * #TODO https://w3c.github.io/presentation-api/#dfn-a-priori-unauthenticated-url
+   * @return {boolean}
+   */
+function isAPrioriUnauthenticatedURL(url) {
+  return !isAPrioriAuthenticatedURL(url);
+}
+
+// https://w3c.github.io/webappsec-mixed-content/#a-priori-authenticated-url
+function isAPrioriAuthenticatedURL(url) {
+  return getScheme(url) !== "data" || isUrlTrustworthy(url) === "Potentially Trustworthy";
+}
+
+function isUrlTrustworthy(url) {
+  if (getScheme(url) === "data") {
+    return "Not Trustworthy";
+  }
+  if (url === "about:blank" || url == "about:srcdoc") {
+    return "Potentially Trustworthy";
+  }
+  return isOriginPotentiallyTrustworthy(getOrigin(url));
+}
+
+// https://w3c.github.io/webappsec-secure-contexts/#is-origin-trustworthy
+function isOriginPotentiallyTrustworthy(origin) {
+  if (!origin) {
+    return "Not Trustworthy";
+  }
+
+  if (origin.scheme === "https" ||
+      origin.scheme === "wss") {
+    return "Potentially Trustworthy";
+  }
+
+  return "Potentially Trustworthy"; // #TODO
+  return "Not Trustworthy";
+}
+
+function getOrigin(url) {
+  switch (getScheme(url)) {
+    case "blob":
+      /* Let url be the result of parsing URL’s path[0].
+        Return a new opaque origin, if url is failure, and url’s origin otherwise.
+      */
+      return null; // #TODO
+      break;
+    case "ftp":
+    case "gopher":
+    case "http":
+    case "https":
+    case "ws":
+    case "wss":
+      return {
+        scheme: getScheme(url),
+        /*host: ,
+        port: ,
+        domain: ,*/
+        baseUrl: getBaseUrl(url)
+      }
+      break;
+    case "file":
+      return null;
+      break;
+    default:
+      return null;
+      break;
+  }
+}
+
+function getScheme(url) {
+  url = url || window.location.href;
+  return new RegExp(/.*\/\//).exec(url)[0].slice(0, -3);
+}
+
+function getBaseUrl(url) {
+  url = url || window.location.href;
+  return new RegExp(/^.*\//).exec(url)[0];
 }
 
 function guid() {
@@ -217,7 +292,7 @@ function createContext(url) {
  */
 function domEx(id, msg) {
   console.error(new Error(msg).stack);
-  return new DOMException(DOMException[id]);
+  return new DOMException(msg, id);
 }
 
 class Browser {
@@ -235,8 +310,12 @@ class Browser {
   /**
    * #TODO https://www.w3.org/TR/html5/browsers.html#allowed-to-show-a-popup
    */
-  static allowedToShowPopup(context) {
-    return true;
+  static allowedToShowPopup(event) {
+    if (event && event.isTrusted) {
+      return true;
+    } else {
+      return false;
+    }
   }
   
   /**
@@ -252,20 +331,12 @@ class Browser {
    * Combines some of the other functions in this class
    */
   static isMixedContentMismatch(presentationUrls) {
-    let mixedSecButUnauth = Browser.prohibitsMixedSecurityContents() && presentationUrls.some(u => Browser.isAPrioriUnauthenticatedURL(u)); // 2.-4.
+    let mixedSecButUnauth = Browser.prohibitsMixedSecurityContents() && presentationUrls.some(u => isAPrioriUnauthenticatedURL(u)); // 2.-4.
     if (mixedSecButUnauth || Browser.isSandboxedPresentation()) {
       return true;
     }
   }
-  
-  /**
-   * #TODO https://w3c.github.io/presentation-api/#dfn-a-priori-unauthenticated-url
-   * @return {boolean}
-   */
-  static isAPrioriUnauthenticatedURL(url) {
-    return false;
-  }
-  
+
   /**
    * #TODO
    * https://www.w3.org/TR/html5/browsers.html#sandboxing-flag-set

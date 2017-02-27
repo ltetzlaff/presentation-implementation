@@ -229,7 +229,7 @@ class PresentationUserAgent extends Presentation {
     })
     .catch(() => { // 10.
       this.pendingSelection = true;
-      throw domEx("NOT_ALLOWED_ERROR");
+      throw domEx("NotAllowedError");
     })
     .then(v => {
       return new Promise((resolve, reject) => {
@@ -237,7 +237,7 @@ class PresentationUserAgent extends Presentation {
         let couldConnectToAnUrl = this.urlsTest(presentationUrls);
         //console.log(empty, !couldConnectToAnUrl);
         if (empty || !couldConnectToAnUrl) {
-          reject(domEx("NOT_FOUND_ERROR", "no available Presentation Displays"));
+          reject(domEx("NotFoundError", "no available Presentation Displays"));
         } else {
           // Ask user which display shall be taken
           let displays = this.availablePresentationDisplays.map(apd => apd.display);

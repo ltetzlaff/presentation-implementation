@@ -20,6 +20,22 @@ e.set('port', process.env.PORT || 8080); //http #yolo
 e.set('views', path.join(__dirname, 'html'));
 e.set('view engine', 'pug');
 //e.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+
+// Enable CORS
+e.use(function(req, res, next) {
+  res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+
+    // intercept OPTIONS method
+    if ('OPTIONS' == req.method) {
+      res.sendStatus(200);
+    }
+    else {
+      next();
+    }
+});
+
 //don't show the log when it is test
 if(e.get('env') !== 'test') {
     //use morgan to log at command line
@@ -116,6 +132,7 @@ const Role = {Controller: 0, Receiver: 1};
 const router = express.Router();
 
 // List all participants etc
+
 router.get("/", (req, res) => res.render("overview", {title: "Overview"}));
 
 ["receiver", "demoPage", "controller", "demo_video_controller", "demo_video_receiver"].forEach(page => {
@@ -154,13 +171,13 @@ router.get("/didSomebodyPrepareMe/:displayId", (req, res) => {
 });
 
 router.get("/monitor", (req, res) => {
+  console.log(displays);
   res.send(displays.map(el => {
     return {
       'displayId': el.displayId,
       'displayName': el.displayName
-        }
     }
-    ));
+  }));
 });
 
 /**
