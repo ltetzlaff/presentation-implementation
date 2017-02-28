@@ -59,20 +59,24 @@ const handlers = {
   connect         :  (id, sessionId, role) => {
     //return ajax("post", server + "/join/" + id + "/" + role, {sessionId, controllerName: CLIENT_NAME});
     
-    return new Promise((resolve, reject) =>{
-      isSocketInitialized("/controller").then(() => {
+    return new Promise((resolve, reject) =>{      
         socket.emit("joinPresentation",{sessionId: sessionId, presentationId: id, controllerName: CLIENT_NAME}, (res) => { 
           resolve(res);
-        })
-      });   
+        });    
     })
     
   },
   messageIncoming : (sessionId, role, cb) => {
-    ajaxLong(server + "/getMail/" + sessionId + "/" + role, null, (message) => cb(message));
+    socket.on('message',(message) => {
+      cb(message)
+    });
+    //ajaxLong(server + "/getMail/" + sessionId + "/" + role, null, (message) => cb(message));
   },
-  send            :  (sessionId, role, type, data) => {
-    return ajax("post", server + "/sendMail/" + sessionId + "/" + role, {type, data})
+  send            :  (sessionId, role, type, data) => {    
+    return new Promise((resolve, reject) =>{
+      socket.emit("sendMail", {type, data, sessionId}, (res) => resolve(res));
+    })
+    //return ajax("post", server + "/sendMail/" + sessionId + "/" + role, {type, data})
   },
   close: (sessionId, role, reason, message) => {
     return ajax("post", server + "/close/" + sessionId + "/" + role, {command: "close", reason, message});
