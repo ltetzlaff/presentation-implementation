@@ -185,7 +185,7 @@ router.post("/prepareMyRoom/:displayId", (req, res) => {
       presentationId: b.presentationId,
       sessionId: b.sessionId
     });
-  setTimeout(() => res.status(200).end(), 1000);
+  setTimeout(() => res.status(200).end(), 50);
 });
 
 router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
@@ -286,6 +286,12 @@ displayIO.on('connection', socket => {
         }));
     */
 
+    socket.on('sendMail', (data, cb) =>{
+      let d = displays.find(d => d.getSession(data.sessionId)).getSession(data.sessionId);
+      d.send("message",data.data);
+      cb(true);    
+    });
+
     socket.on('test', () => {
         //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
         console.log('just for test');
@@ -306,10 +312,13 @@ displayIO.on('connection', socket => {
           url: b.url,
           presentationId: b.presentationId,
           sessionId: b.sessionId
-        });
-      // TODO
-        console.log('message: ' + msg.msg);
-        console.log('id: ' + socket.id);
+        });   
+    });
+
+    socket.on('joinPresentation', (data, cb) =>{
+      // TODO make some check before returning true
+      setTimeout(() => cb(true), 50);
+
     });
 });
 // Everything for the Controller
@@ -325,6 +334,12 @@ controllerIO.on('connection', socket => {
             return el.getJSONInfo;
         }));
     */
+
+    socket.on('sendMail', (data, cb) =>{
+      let d = displays.find(d => d.getSession(data.sessionId));
+      d.send("message",data.data);
+      cb(true);    
+    });
 
     socket.on('monitor', (data, cb) =>{
       cb(displays.map(el => {
@@ -345,24 +360,8 @@ controllerIO.on('connection', socket => {
           presentationId: data.presentationId, controllerName: data.controllerName,
         });
       }
-      // Little Hack so it is actually a TODO
-      setTimeout(() => cb(true), 1000);
-      
-      
+      setTimeout(() => cb(true), 50);
 
-
-      /*
-      router.post("/join/:presentationId/:role", (req, res) => {
-  let b = req.body;
-  if (req.display && req.role === Role.Controller) {
-    let newSession = new Controller(b.sessionId, b.controllerName);
-    req.display.freshSessions.push(newSession);
-    req.display.send("joined",
-      {presentationId: req.params.presentationId, controllerName: b.controllerName});
-  }
-  res.status(200).end();
-});
-      */ 
     });
 });
 
