@@ -25,14 +25,17 @@ Since the specificiation relies heavily on individual vendor-specific mechanisms
 
 As of this implementation the required logic was split up in separate files that need to be included as seen below.
 
-| Script                    | Controller | Receiver  | Receiving Context | Description                     |
-| ---                       |     ---    |    ---    |        ---        |    ---                          |
-| presentation.js           |      Y     |     Y     |         Y         | Polyfill of Presentation API    |
-| presentationUserAgent.js  |      Y     |     Y     |                   | Vendor-specific realization     |
-| implementation.*.js       |      Y     |     Y     |                   | Implementation-specifics        |
-| receiver.js               |            |     Y     |                   | Hosting once loaded / Backdrop  |
-| receivingContext.js       |            |           |         Y         | Communication with Receiving UA |
-| *.js                      |            |           |                   | Client scripts that use the API |
+### Scripts
+
+| Script                    | Controller | Receiver  | Receiving Context | Description                       |
+| ---                       |     ---    |    ---    |        ---        |    ---                            |
+| util.js                   |      Y     |     Y     |         Y         | General utilities to stay vanilla |
+| presentation.js           |      Y     |     Y     |         Y         | Polyfill of Presentation API      |
+| presentationUserAgent.js  |      Y     |     Y     |                   | Vendor-specific realization       |
+| implementation.*.js       |      Y     |     Y     |                   | Implementation-specifics          |
+| receiver.js               |            |     Y     |                   | Hosting once loaded / Backdrop    |
+| receivingContext.js       |            |           |         Y         | Communication with Receiving UA   |
+| *.js                      |            |           |                   | Client scripts that use the API   |
 
 Each entity in a Presentation scenario includes the API Polyfill, whereas only Controller and Receiver include the tasks the User Agent shall fulfill globally or in the background to provide relative safety to the receiving context thus preventing it to be conquered by malicious Controllers and displaying content that's not intend to be presented (think of a game without a fixed set of commands in which a Controller was able to inject code to manipulate player's scores or similar situations).
 
@@ -42,7 +45,7 @@ Every User Agent has a set of handlers that are to be configured apart from the 
 
 ## Alternative Approaches
 
-Priorly considered approaches included stricter separation of the respective contexts and User Agents using a top-level context like a tab as the User Agent and several child contexts (iframes) as the browsing contexts. Due to the requirement that custom objects such as `PresentationRequest` or `PresentationConnection` need to be passed between context and User Agent the approach raised several problems, mainly related to serialization of these custom objects to then be transmitted via the `window.postMessage()`-interface and deserialized, keeping these multiple object instances synchronized, rerouting function calls and offering proper garbage collection.
+Priorly considered approaches included stricter separation of the respective contexts and User Agents using a top-level context like a tab as the User Agent and several child contexts (iframes) as the browsing contexts. Due to the requirement that custom objects such as `PresentationRequest` or `PresentationConnection` need to be passed between context and User Agent the approach raised several problems, mainly related to serialization of these custom objects to then be transmitted via the `Window.postMessage`-interface and deserialized, keeping these multiple object instances synchronized, rerouting function calls and offering proper garbage collection.
 
 These problems originate from the circumstance that W3C specifications are usually meant to be implemented natively by browser vendors thereby ommitting the preceding complications or falling back to proper solutions for this issue that have already been implemented.
 
@@ -52,17 +55,34 @@ Due to those obstacles this implementation resorted to the concept described in 
 
 >>>
 6.6.1 Creating a receiving browsing context
+
 When the user agent is to create a receiving browsing context, it must run the following steps:
+
 [Read More](https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context)
 >>>
 
 In this function points 1 to 10 are not met since the receiving browsing context is not spawned as a new top-level context.
-***TODO*** another example
+
+>>>
+This specification adds a new token, allow-presentation, to the set of tokens allowed in the sandbox attribute of an iframe. It adds a corresponding new flag to the sandboxing flag set:
+
+The sandboxed presentation browsing context flag
+
+_This flag disables the Presentation API._
+>>>
+
+This kind of functionality can not be realiably enforced using non-native code hosted in one context since the method prohibiting this can simply be overridden by applying common reflection commands or generic functions such as `Object.defineProperty`.
+
+## Extensibility
+
+Being constrained by the above aspects the implementation could still be extended by more generic and anonymous display detection as discussed in [7.1 Personally identifiable information](https://w3c.github.io/presentation-api/#personally-identifiable-information), browser-instance-wide synchronization of existing presentation connections (like caching the `presentationId`) or recognized displays.
 
 ## Test Compliance
 
-To identify these problems the [W3C Testharness](https://github.com/w3c/web-platform-tests/tree/master/presentation-api) was applied, yielding the following results:
+To identify problems in the implementation the [W3C Testharness](https://github.com/w3c/web-platform-tests/tree/master/presentation-api) was applied, yielding the following results:
 ***TODO***
+
+The tests were run using the regular approach the W3C recommends (see [Web Platform Tests](***TODO***)) with the addition of priorly injecting the necessary scripts (see [Scripts][scripts]) and defering the load of inline scripts running the actual tests by a nodejs script (see [github/inject](inject-***TODO).
 
 ## Usage Example
 
