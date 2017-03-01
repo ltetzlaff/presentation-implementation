@@ -288,7 +288,7 @@ class PresentationConnection {
    * 6.5.6
    * terminate controlling
    */
-  terminateAsController() {
+  terminate() {
     if (this.state != PresentationConnectionState.connected) {
       return; // 1.
     }
@@ -383,11 +383,11 @@ class PresentationRequest {
    */
   start() {
     if (!Browser.allowedToShowPopup(event)) {
-      return Promise.reject(new InvalidAccessError()); // 1.
+      return Promise.reject(domEx("InvalidAccessError")); // 1.
     }
     
     if (document.startPromise) {
-      return Promise.reject(new OperationError()); // 2.+3. (somewhat simplified)
+      return Promise.reject(domEx("OperationError")); // 2.+3. (somewhat simplified)
     }
 
     // 4.
@@ -399,12 +399,17 @@ class PresentationRequest {
       
       this.getAvailability().then(() => {
         ua.letUserSelectDisplay(this.presentationUrls) // 7-9.
+        .catch(e => {
+          document.startPromise = null;
+          reject(e)
+        })
         .then(D => {
           // 11. - 12.
           this.startPresentationConnection(D, resolve);
         });
       });
     });
+    document.startPromise = P;
     return P; // 5.
   }
   
@@ -420,10 +425,10 @@ class PresentationRequest {
     }
     
     let presentationUrls = defaultReq.presentationUrls; // 1.
-    if (Browser.isSandboxedPresentation(W)) {
-      return;
-    }
-    // #TODO
+    // If there is no presentation request URL for presentationRequest for which D is an available presentation display, then abort these steps.
+    // #TODO // 2.
+    defaultReq.startPresentationConnection(D);
+
   }
   
   /**
@@ -450,7 +455,10 @@ class PresentationRequest {
     ua.controlledPresentations.push(S); // 7.
     
     // 8.
-    P(S);
+    if (P && typeof P === "function") {
+      document.startPromise = null;
+      P(S);
+    }
 
     // 9.
     queueTask(() => {
@@ -519,7 +527,7 @@ class PresentationRequest {
       }
 
       // 7.
-      reject(new NotFoundError());
+      reject(domEx("NotFoundError"));
     });
   }
   

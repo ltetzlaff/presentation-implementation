@@ -25,7 +25,7 @@ let selectDisplayUI = (displays) => {
 
         let selectedDisplay = displays.find(d => d.displayId === e.data);
         if(selectedDisplay === undefined){
-          reject("dismissed");
+          reject(domEx("NotAllowedError"));
           return;
         }
         resolve(selectedDisplay);

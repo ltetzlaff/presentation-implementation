@@ -311,7 +311,8 @@ class Browser {
    * #TODO https://www.w3.org/TR/html5/browsers.html#allowed-to-show-a-popup
    */
   static allowedToShowPopup(event) {
-    if (event && event.isTrusted) {
+    console.log(event);
+    if (event && event.isTrusted && event.type !== "load") {
       return true;
     } else {
       return false;

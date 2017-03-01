@@ -18,7 +18,7 @@ p.receiver.connectionList.then(list => {
 });*/
 
 ready(() => {
-  $("#displayDescription").innerHTML = D.displayName + "<p class='sub'>" + D.displayId + "</p>";
+  //$("#displayDescription").innerHTML = D.displayName + "<p class='sub'>" + D.displayId + "</p>";
 });
 
 /* window.top.connection.onmessage = function (message) {
