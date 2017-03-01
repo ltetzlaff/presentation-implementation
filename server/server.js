@@ -185,7 +185,7 @@ router.post("/prepareMyRoom/:displayId", (req, res) => {
       presentationId: b.presentationId,
       sessionId: b.sessionId
     });
-  setTimeout(() => res.status(200).end(), 50);
+  setTimeout(() => res.status(200).end(), 500);
 });
 
 router.get("/didSomebodyJoinMe/:presentationId", (req, res) => {
@@ -317,7 +317,7 @@ displayIO.on('connection', socket => {
 
     socket.on('joinPresentation', (data, cb) =>{
       // TODO make some check before returning true
-      setTimeout(() => cb(true), 50);
+      cb(true);
 
     });
 });
@@ -360,7 +360,7 @@ controllerIO.on('connection', socket => {
           presentationId: data.presentationId, controllerName: data.controllerName,
         });
       }
-      setTimeout(() => cb(true), 50);
+      setTimeout(() => cb(true), 10);
 
     });
 });

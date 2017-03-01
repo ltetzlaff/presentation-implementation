@@ -50,7 +50,7 @@ function isOriginPotentiallyTrustworthy(origin) {
     return "Potentially Trustworthy";
   }
 
-  return "Potentially Trustworthy"; // #TODO
+  //return "Potentially Trustworthy"; // #TODO
   return "Not Trustworthy";
 }
 
