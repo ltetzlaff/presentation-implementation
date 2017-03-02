@@ -94,9 +94,11 @@ To start it just hit `npm start` in `%projectRoot%/server` and send your browser
 
 ## Appendices
 
-![test-results](img/test-results.png)
+The attached images show how the following usage looks like, after starting the display and thus the Receiver a backdrop image is visible. Loading the controlling application page instantiates the Controller. The user may now connect to a display of her choice after clicking the designated button. After the handshake is complete the url of the embedded video is exchanged and the user may toggle playback remotely. Similar to how Youtube on a Chromecast works other users may now enter the room (or the same user can reconnect if the presentationId is cached) and overwrite what is being shown on the display without revoking the right of the other participants to toggle video playback.
 
-![demo0](img/demo1.jpg)
+![test-results](documentation/img/test-results.png)
 
-![demo0](img/demo4.jpg)
+![demo0](documentation/img/demo1.jpg)
+
+![demo0](documentation/img/demo4.jpg)
 
