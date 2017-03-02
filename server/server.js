@@ -287,32 +287,24 @@ displayIO.on('connection', socket => {
     */
 
     socket.on('sendMail', (data, cb) =>{
-      let d = displays.find(d => d.getSession(data.sessionId)).getSession(data.sessionId);
-      d.send("message",data.data);
+      let c = displays.find(d => d.getSession(data.sessionId)).getSession(data.sessionId);
+      c.send("message",data.data);
       cb(true);    
     });
 
-    socket.on('test', () => {
-        //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
+    socket.on('close', (data, cb) => {
+        let d = displays.find(d => d.getSession(data.sessionId));
+        let c = d.getSession(data.sessionId);
+        
         console.log('just for test');
-        socket.emit("prepared", "test")
+        c.send("message", data);
+        d.removeSession(data.sessionId);
+        cb(true);    
     });
 
     socket.on('disconnect', () => {
         //monitor.splice(monitor.indexOf(el => el.connectionId == socket.id),1);
         console.log('monitor disconnected');
-    });
-
-    // Here goes everything display communication related
-    socket.on('prepareMyRoom', msg => {
-      let b = req.body;
-      req.display.presentationId = b.presentationId;
-      req.display.send("prepared", {
-          display: req.display,
-          url: b.url,
-          presentationId: b.presentationId,
-          sessionId: b.sessionId
-        });   
     });
 
     socket.on('joinPresentation', (data, cb) =>{
@@ -335,6 +327,19 @@ controllerIO.on('connection', socket => {
         }));
     */
 
+    // Here goes everything display communication related
+    socket.on('prepareMyRoom', (data, cb) => {
+      let display = displays.find(d => d.displayId === data.displayId);      
+      display.presentationId = data.presentationId;
+      display.send("prepared", {
+          display: display,
+          url: data.url,
+          presentationId: data.presentationId,
+          sessionId: data.sessionId
+        });   
+      setTimeout(() => cb(true), 200);
+    });
+
     socket.on('sendMail', (data, cb) =>{
       let d = displays.find(d => d.getSession(data.sessionId));
       d.send("message",data.data);
@@ -348,6 +353,15 @@ controllerIO.on('connection', socket => {
           'displayName': el.displayName
             }
         }));    
+    });
+
+    socket.on('close', (data, cb) => {
+        let d = displays.find(d => d.getSession(data.sessionId));
+                
+        console.log('just for test');
+        d.send("message", data);
+        d.removeSession(data.sessionId);
+        cb(true);    
     });
 
     // use joinPresentation, because join is already beeing used by socket.io

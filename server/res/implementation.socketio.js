@@ -46,7 +46,12 @@ const handlers = {
   ,
   selectDisplay   :  (displays) => selectDisplayUI(displays),
   createContext   :  (display, url, presentationId, sessionId) => {
-    return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId, sessionId})
+    return new Promise((resolve, reject) => {
+      socket.emit("prepareMyRoom",{url, presentationId, sessionId, displayId: display.displayId}, (res) => { 
+          resolve(res);
+        });    
+    });
+    //return ajax("post", server + "/prepareMyRoom/" + display.displayId, {url, presentationId, sessionId})
   },
   monitorIncoming : (id, url, cb) => {
     /*ajaxLong(server + "/didSomebodyJoinMe/" + id, null,
@@ -63,7 +68,7 @@ const handlers = {
         socket.emit("joinPresentation",{sessionId: sessionId, presentationId: id, controllerName: CLIENT_NAME}, (res) => { 
           resolve(res);
         });    
-    })
+    });
     
   },
   messageIncoming : (sessionId, role, cb) => {
@@ -75,11 +80,14 @@ const handlers = {
   send            :  (sessionId, role, type, data) => {    
     return new Promise((resolve, reject) =>{
       socket.emit("sendMail", {type, data, sessionId}, (res) => resolve(res));
-    })
+    });
     //return ajax("post", server + "/sendMail/" + sessionId + "/" + role, {type, data})
   },
   close: (sessionId, role, reason, message) => {
-    return ajax("post", server + "/close/" + sessionId + "/" + role, {command: "close", reason, message});
+    return new Promise((resolve, reject) =>{
+      socket.emit("close", {command: "close", reason, message, sessionId}, (res) => resolve(res));
+    });
+    //return ajax("post", server + "/close/" + sessionId + "/" + role, {command: "close", reason, message});
   }
 };
 

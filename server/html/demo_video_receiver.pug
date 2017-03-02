@@ -5,12 +5,13 @@ block js
     // Example code
     let addConnection = connection => {
       connection.onmessage = messageEvent => {
-        if (!messageEvent || !messageEvent.data || !messageEvent.data.command) {
-          console.log("Expected messageEvent.data.command, received:", messageEvent);
+        let message = JSON.parse(messageEvent.data)
+        if (!message || !message || !message.command) {
+          console.log("Expected messageEvent.data.command, received:", message);
           throw new Error("wrong input")
         }
         //connection.send("message pingpong: " + messageEvent.data);
-        switch (messageEvent.data.command) {
+        switch (message.command) {
           case "play":
             $("#video").contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', "*");
             connection.send("played");
@@ -20,7 +21,7 @@ block js
             connection.send("paused");
             break;
           case "load":
-            $("#video").setAttribute("src", messageEvent.data.url + "?enablejsapi=1")
+            $("#video").setAttribute("src", message.url + "?enablejsapi=1")
             connection.send("loaded");
             break;
         }
