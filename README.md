@@ -1,6 +1,9 @@
-# Presentation API Proof-of-Concept Implementation
+# Presentation API Implementation
 
 Authors: Lukas Tetzlaff, Nico Tasche, Simone Egger; Advisor: Louay Bassbouss
+
+[comment]: # (\markboth{PJ Advanced Web Technologies WS16/17}
+{Fraunhofer Fokus FAME, TU Berlin}\maketitle)
 
 ## Abstract
 
@@ -10,17 +13,19 @@ Paraphrased, the API aims to provide a generalized way of accessing and connecti
 
 ## Architecture
 
-To facilitate using the Presentation API in terms of hosting a presentation, connecting to a presentation and using the established connection the interface to the user or rather the application developer is kept simple and straight-forward as to be seen in [Usage Example][#usage-example]. Generally speaking there are three distinct entities involved in the aforementioned processes, the first being the Receiving User Agent. In case of a browser vendor's implementation of the API this is most likely to be integrated into the browser natively or as a plugin, whereas in this implementation it's a polyfill housed in a loaded html-document, hereafter referred to as the *Receiver*.
+To facilitate using the Presentation API in terms of hosting a presentation, connecting to a presentation and using the established connection the interface to the user or rather the application developer is kept simple and straight-forward as to be seen in the [Demo][#demo]. Generally speaking there are three distinct entities involved in the aforementioned processes, the first being the Receiving User Agent. In case of a browser vendor's implementation of the API this is most likely to be integrated into the browser natively or as a plugin, whereas in this implementation it's a polyfill housed in a loaded html-document, hereafter referred to as the *Receiver*.
 
 The counterpart is the Controlling Browser Agent which acts upon input from the controlling browsing context. Due to the closely coupled relation in the internal procedures of the specification those two entities have been combined into the *Controller* which can be any regular web page enriched by the same aforementioned PresentationAPI-polyfill and scripts containing the desired controller logic of the application developer.
 
-As soon as the Controller knows about the possibility to present on a remote display (~~ Presentation Availability) it may start a Presentation Connection and instruct the Receiver to create a receiving browsing context, here referred to as the *Presentation*, which is the final third component. This is another document written by the application developer that needn't be much different from the "regular" controlling page since it can identify if it is loaded as a Presentation and act accordingly.
+As soon as the Controller knows about the possibility to present on a remote display (Presentation Availability) it may start a Presentation Connection and instruct the Receiver to create a receiving browsing context, here referred to as the *Presentation*, which is the final third component. This is another document written by the application developer that needn't be much different from the regular controlling page since it can identify if it is loaded as a Presentation and act accordingly.
 
 Since the specification relies heavily on individual vendor-specific mechanisms this implementation also provides a configuration interface for the User Agent level that requires a set of handlers[Configuration][#configuration]. To prove this concept two distinct approaches were realized, as seen in [Demo][#demo], one relying purely on ajax and long-polling thus offering maximum compatibility and the second one on WebSockets for a more standard bidirectional low-latency communication, abstracted by third-party library SocketIO which by default also includes a long-polling fallback.
 
 As of this implementation the required logic was split up in separate files that need to be included as seen below.
 
 ### Scripts
+
+In the following table `C` denotes the Controller, `R` the Receiver and `RC` the Receiving Context.
 
 | Script                    | Controller | Receiver  | Receiving Context | Description                       |
 | ---                       |     ---    |    ---    |        ---        |    ---                            |
@@ -31,6 +36,7 @@ As of this implementation the required logic was split up in separate files that
 | receiver.js               |            |     Y     |                   | Hosting once loaded / Backdrop    |
 | receivingContext.js       |            |           |         Y         | Communication with Receiving UA   |
 | *.js                      |            |           |                   | Client scripts that use the API   |
+
 
 Each entity in a Presentation scenario includes the API Polyfill, whereas only Controller and Receiver include the tasks the User Agent shall fulfill globally or in the background to provide relative safety to the receiving context thus preventing it to be conquered by malicious Controllers and displaying content that's not intend to be presented (think of a game without a fixed set of commands in which a Controller was able to inject code to manipulate player's scores or similar situations).
 
@@ -52,9 +58,10 @@ Due to those obstacles this implementation resorted to the concept described in 
 6.6.1 Creating a receiving browsing context
 
 When the user agent is to create a receiving browsing context, it must run the following steps:
+...
+>>>
 
 [Read More](https://w3c.github.io/presentation-api/#creating-a-receiving-browsing-context)
->>>
 
 In this function points 1 to 10 are not met since the receiving browsing context is not spawned as a new top-level context.
 
@@ -73,14 +80,23 @@ Being constrained by the above aspects the implementation could also be extended
 
 ## Test Compliance
 
-To identify problems in the implementation the [W3C Testharness](https://github.com/w3c/web-platform-tests/tree/master/presentation-api) was applied, yielding the following results:
+To identify problems in the implementation the [W3C Testharness](https://github.com/w3c/web-platform-tests/tree/master/presentation-api) was applied, yielding decent results (see [Test-results][#test-results]).
 
-***TODO***
-
-The tests were run using the regular approach the W3C recommends (see [Web Platform Tests](https://github.com/w3c/web-platform-tests)) with the addition of priorly injecting the necessary scripts (see [Scripts][scripts]) and defering the load of inline scripts running the actual tests by a nodejs script (see [Github](https://github.com/ltetzlaff/inject-dependencies).
+The tests were run using the regular approach the W3C recommends (see [Web Platform Tests](https://github.com/w3c/web-platform-tests)) with the addition of priorly injecting the necessary scripts (see [Scripts][#scripts]) and defering the load of inline scripts running the actual tests by a nodejs script (see [Github](https://github.com/ltetzlaff/inject-dependencies).
 
 Comparing this outcome with official implementation results the test compliance is on par with if not higher than CD53 from June 2016 [W3C Test results](https://w3c.github.io/test-results/presentation-api/controlling-ua/all.html) with fails mostly eventuating from the above design decisions (see [Architecture][#architecture] and [Shortcomings][#shortcomings]) such as the necessity to construct a `TrustedEvent` which is reserved for the browser.
 
 ## Demo
 
 Included in the presentation is a simple controller page incorporating an embedded youtube video whose url is - upon connecting to a presentation display hosted in a separate site - transmitted to the Receiver and then loaded there as a Receiving Browsing Context. Furthermore certain click events in the controller document invoke a function call in the Receiving Browsing Context via a predefined micro-protocol to play and pause the video. Similar to the [Google Chromecast](https://google.com/chromecast) Device a backdrop image and the display identification are displayed when the Controller is idle. The [Configuration][#configuration] handlers for e.g. the connection handshake or message exchange are implemented with a Node.JS app incorporating a hybrid approach of [Socket.io](https://socket.io) and a more compatible ajax fallback.
+
+To start it just hit `npm start` in `%projectRoot%/server` and send your browser to `localhost:8080/receiver` and `localhost:8080/demo_video_controller`.
+
+## Appendices
+
+![test-results](img/test-results.png)
+
+![demo0](img/demo1.jpg)
+
+![demo0](img/demo4.jpg)
+
