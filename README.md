@@ -1,6 +1,6 @@
 # Presentation API Proof-of-Concept Implementation
 
-Authors: Lukas Tetzlaff, Nico Tasche, Simone Egger
+Authors: Lukas Tetzlaff, Nico Tasche, Simone Egger; Advisor: Louay Bassbouss
 
 ## Abstract
 
@@ -62,8 +62,7 @@ In this function points 1 to 10 are not met since the receiving browsing context
 This specification adds a new token, allow-presentation, to the set of tokens allowed in the sandbox attribute of an iframe. It adds a corresponding new flag to the sandboxing flag set:
 
 The sandboxed presentation browsing context flag
-
-_This flag disables the Presentation API._
+This flag disables the Presentation API.
 >>>
 
 This kind of functionality can not be reliably enforced using non-native code hosted in one context since the method prohibiting this can simply be overridden by applying common reflection commands or generic functions such as `Object.defineProperty`.
